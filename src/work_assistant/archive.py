@@ -111,7 +111,10 @@ class LocalArchive:
         return changed
 
     def list_messages(self, account: str | None = None, limit: int = 20) -> list[dict[str, object]]:
-        query = "SELECT account, provider_id, thread_id, sent_at, folder, sender, subject FROM messages"
+        query = (
+            "SELECT account, provider_id, thread_id, sent_at, folder, sender, subject, payload_json "
+            "FROM messages"
+        )
         params: list[object] = []
         if account:
             query += " WHERE account = ?"
@@ -119,7 +122,11 @@ class LocalArchive:
         query += " ORDER BY sent_at DESC LIMIT ?"
         params.append(limit)
         with self.connect() as connection:
-            return [dict(row) for row in connection.execute(query, params)]
+            rows = [dict(row) for row in connection.execute(query, params)]
+        for row in rows:
+            payload = json.loads(str(row.pop("payload_json")))
+            row["attachments"] = payload.get("attachments", [])
+        return rows
 
     def get_message(self, account: str, message_id: str) -> dict[str, object] | None:
         with self.connect() as connection:

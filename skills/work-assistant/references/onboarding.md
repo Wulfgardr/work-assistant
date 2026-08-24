@@ -1,13 +1,13 @@
-# Adaptive onboarding
+# Onboarding adattativo
 
-Use this procedure when the user asks to configure Work Assistant or add an account.
+Usa questa procedura per configurare Work Assistant o aggiungere un account.
 
-1. Call `mail_onboarding_plan` for the named provider.
-2. Explain which steps belong to the agent, human and local CLI.
-3. Collect only non-secret settings such as account name, email address and host.
-4. Ask the human to complete login and 2FA directly in the provider's browser interface.
-5. For Zimbra or Carbonio browser-session authentication, tell the human to export the HAR locally and run `work-assistant import-zimbra-har`. Never ask for the HAR path through MCP and never ask the user to paste HAR content into chat.
-6. Call `mail_onboarding_status`. It returns only booleans and adapter state.
-7. Stop if the adapter is unavailable, session material is missing, TLS verification fails or provider permissions exceed the reviewed scope.
+1. Chiama `mail_onboarding_plan` per il provider indicato.
+2. Spiega quali passaggi appartengono all'agente, alla persona e alla CLI locale.
+3. Raccogli solo impostazioni non segrete, come nome account, indirizzo e host.
+4. Chiedi alla persona di eseguire login e autenticazione a due fattori nel browser del provider.
+5. Per Zimbra o Carbonio, indica il comando locale `work-assistant import-zimbra-har`. Non chiedere il percorso tramite MCP e non chiedere di incollare il contenuto in chat.
+6. Chiama `mail_onboarding_status`. Il risultato contiene solo stato e valori booleani.
+7. Fermati se l'adapter non è disponibile, mancano dati di sessione, TLS non è verificato o i permessi superano l'ambito controllato.
 
-Do not automate trusted-device enrollment. Do not request a password, OTP, token, cookie value or complete mailbox export in a prompt.
+Non automatizzare l'autorizzazione di un dispositivo attendibile. Non richiedere password, OTP, token, cookie o esportazioni complete in un prompt.

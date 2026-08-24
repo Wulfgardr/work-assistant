@@ -1,21 +1,21 @@
-# ADR 0001: Open-source license
+# ADR 0001: licenza open source
 
-- Status: Accepted
-- Date: 2026-08-24
+- Stato: accettata
+- Data: 24 agosto 2026
 
-## Context
+## Contesto
 
-Work Assistant needs an explicit license before public distribution. A permissive license lowers adoption friction; a copyleft license better preserves public access to derivatives.
+Work Assistant richiede una licenza esplicita per la distribuzione pubblica. Una licenza permissiva riduce gli ostacoli all'integrazione. Una licenza copyleft tutela maggiormente l'accesso pubblico alle opere derivate.
 
-## Decision
+## Decisione
 
-Use MIT for the first public release because the provider adapter ecosystem benefits from low integration friction.
+La prima versione pubblica usa la licenza MIT. L'ecosistema degli adapter beneficia di condizioni di integrazione brevi e permissive.
 
-## Alternatives
+## Alternative considerate
 
-- Apache-2.0 adds an explicit patent grant with more text.
-- AGPL-3.0 requires network-served derivatives to publish corresponding source and better protects the commons.
+- Apache-2.0 aggiunge una concessione brevettuale esplicita e un testo più esteso.
+- AGPL-3.0 richiede la pubblicazione del codice sorgente corrispondente anche per servizi accessibili in rete.
 
-## Consequences
+## Conseguenze
 
-MIT permits proprietary derivatives and hosted services. The project may be published under this license.
+La licenza MIT permette opere derivate proprietarie e servizi ospitati. Il progetto può essere distribuito pubblicamente con questa licenza.

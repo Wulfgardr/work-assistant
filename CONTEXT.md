@@ -1,33 +1,19 @@
-# Work Assistant domain
+# Modello di dominio
 
-Work Assistant turns provider messages into a local, reviewable operational workspace for a person or an AI agent.
+Work Assistant trasforma i messaggi di uno o più provider in uno spazio operativo locale, controllabile da una persona o da un agente.
 
-## Language
+## Termini principali
 
-**Account**:
-A configured mailbox identity handled as an independent source.
-_Avoid_: Tenant, inbox
+- **Account**: identità di una casella configurata come fonte indipendente. Evita di usare *tenant* o *inbox* con lo stesso significato.
 
-**Provider adapter**:
-A component that reads from or writes to one email service through a stable Work Assistant contract.
-_Avoid_: Provider, integration
+- **Adapter del provider**: componente che traduce un servizio email nel contratto stabile di Work Assistant. Evita il termine generico *integrazione* quando intendi questo componente.
 
-**Local archive**:
-The normalized, integrity-checked local record of material acquired from configured accounts.
-_Avoid_: Tesseract, backup
+- **Archivio locale**: registro normalizzato e controllato del materiale acquisito dagli account. Non chiamarlo *Tesseract* o *backup*.
 
-**Knowledge view**:
-A rebuildable projection of contacts and interactions derived from the local archive.
-_Avoid_: Backup, source of truth
+- **Vista di conoscenza**: proiezione rigenerabile di contatti e interazioni derivata dall'archivio locale. Non è una fonte originale né un backup.
 
-**Draft candidate**:
-Proposed email content stored locally until a person authorizes a provider-side draft.
-_Avoid_: Draft, sent message
+- **Candidato di risposta**: contenuto proposto e conservato localmente. Non è una bozza presente sul provider e non è un messaggio inviato.
 
-**Agent surface**:
-A structured interface, such as MCP, through which an agent inspects or operates Work Assistant.
-_Avoid_: Skill
+- **Superficie agente**: interfaccia strutturata, come MCP, con cui un agente usa Work Assistant. Non è la skill.
 
-**Skill**:
-Instructions that teach an agent how to use Work Assistant within its authority boundaries.
-_Avoid_: Tool, plugin
+- **Skill**: istruzioni che insegnano a un agente come usare Work Assistant entro i confini autorizzati. Non è uno strumento o un plugin esecutivo.

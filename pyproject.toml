@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "work-assistant"
-version = "0.2.0"
-description = "Local-first, provider-neutral email operations for people and AI agents."
+version = "0.3.0"
+description = "Gestione locale e indipendente dal provider per persone e agenti AI."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -27,6 +27,9 @@ work-assistant = "work_assistant.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+work_assistant = ["templates/*.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

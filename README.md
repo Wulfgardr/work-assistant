@@ -1,83 +1,124 @@
 <div align="center">
+  <img src="docs/assets/work-assistant-mark.svg" width="112" alt="Marchio di Work Assistant: una busta protetta da un arco" />
 
 # Work Assistant
 
-**Your archive stays local. Agent exposure is explicit. You stay in control.**
+  <img src="docs/assets/built-with-codex.svg" width="220" alt="Costruito con Codex" />
 
-Provider-neutral email operations for Codex, Claude and the command line.
+**La posta diventa un archivio locale utilizzabile da una persona o da un agente intelligente.**
 
-[Quick start](#quick-start) · [Use with an agent](#use-with-an-agent) · [Add a provider](#add-a-provider) · [Safety model](#safety-model)
+Indipendente dal provider · Più caselle · CLI · MCP · Revisione umana
 
+[Inizia dalla demo](#prova-la-demo) · [Collega un agente](#usa-work-assistant-con-un-agente) · [Comprendi la sicurezza](#come-protegge-i-dati) · [Stato del progetto](#stato-del-progetto)
 </div>
 
 ---
 
-Work Assistant turns one or more mailboxes into a local, structured workspace. It gives an AI agent explicit tools to inspect messages, build context and prepare local draft candidates.
+![Schema illustrato: dalle caselle all'archivio locale, al broker e all'agente](docs/assets/work-assistant-overview.svg)
 
-It is not an autonomous sender. The included public core never sends email.
+## Che cos'è Work Assistant
 
-## What you get
+Work Assistant è un sistema locale per organizzare e usare la posta elettronica con strumenti intelligenti.
 
-- **Multiple accounts** — each mailbox has its own name, address and provider adapter.
-- **Local archive** — normalized messages are stored in SQLite with payload hashes.
-- **Knowledge view** — contacts and interactions are rebuilt from the archive, not hidden in a model.
-- **Privacy broker + MCP gateway** — clear data stays in the trusted local broker; the agent receives policy-filtered payloads.
-- **Reversible pseudonyms** — stable workspace-local aliases are restored only while creating local artifacts.
-- **Plain CLI** — inspect and operate the same core without an agent.
-- **Review-first drafts** — the public core stores local draft candidates and reports `sent: false`.
-- **Local restored artifacts** — analyses, summaries and contact notes return through the broker and are de-pseudonymized only in local storage.
+Il sistema acquisisce messaggi da una o più caselle, li normalizza e li conserva in un archivio SQLite locale. Da questo archivio ricostruisce una vista di contatti e interazioni. Una persona può usare il sistema dalla riga di comando. Un agente, come Codex o Claude, può usarlo tramite il protocollo MCP.
 
-```text
-Codex / Claude
-      │ pseudonymized MCP
-      ▼
-   MCP gateway
-      │ authenticated local IPC
-      ▼
-   Privacy broker
-      ├── clear local archive
-      ├── encrypted alias vault
-      ├── knowledge view
-      └── local draft candidates
-         │
-   provider adapters
-      ├── demo JSONL ✓
-      ├── Zimbra      external adapter
-      ├── Microsoft   community adapter
-      └── Gmail/IMAP  community adapter
+Work Assistant non è un client di posta tradizionale e non è una semplice skill:
+
+- il **core** gestisce account, archivio, controlli e contenuti proposti;
+- la **CLI** permette a una persona di usare il core senza un modello;
+- il **server MCP** offre strumenti strutturati agli agenti;
+- la **skill** insegna all'agente come usare questi strumenti entro i limiti autorizzati;
+- un **adapter** collega uno specifico servizio email al core.
+
+Il core pubblico non invia email. Le risposte preparate restano candidati locali fino a un'eventuale azione separata e autorizzata.
+
+![Tre schede: memoria locale, superficie agente e controllo umano](docs/assets/work-assistant-capabilities.svg)
+
+| Capacità | Che cosa significa |
+| --- | --- |
+| Memoria locale | I messaggi normalizzati restano sul computer e conservano hash di integrità. |
+| Superficie per agenti | MCP espone comandi tipizzati senza consegnare al gateway l'accesso diretto all'archivio. |
+| Controllo umano | Il core pubblico prepara contenuti locali, ma non espone un comando di invio. |
+
+## Perché esiste
+
+Una casella contiene più di singoli messaggi. Contiene conversazioni, persone, allegati, decisioni e attività ancora aperte. I normali client mostrano bene la posta corrente, ma rendono difficile riusare questa storia come conoscenza operativa.
+
+Work Assistant separa tre livelli:
+
+1. **Archivio locale**: conserva ciò che è stato acquisito e ne controlla l'integrità.
+2. **Vista di conoscenza**: ricostruisce contatti e interazioni dall'archivio. È derivata e può essere rigenerata.
+3. **Superficie agente**: permette a un modello di cercare, leggere e preparare contenuti tramite operazioni controllate.
+
+La vista di conoscenza non è la fonte originale e non costituisce, da sola, un backup verificato. Un vero backup richiede anche copia, conservazione, controllo e prova di ripristino.
+
+## Come funziona
+
+```mermaid
+flowchart LR
+  Persona[Persona] --> Agente[Agente intelligente]
+  Agente -->|strumenti MCP| Gateway[Gateway MCP]
+  Gateway -->|IPC locale autenticato| Broker[Broker locale]
+  Broker --> Archivio[(Archivio locale)]
+  Broker --> Vista[Vista di conoscenza]
+  Broker --> Candidati[Candidati di risposta]
+  Adapter[Adapter del provider] --> Broker
+
+  classDef paper fill:#f7f2e7,stroke:#294b37,color:#172019;
+  classDef sage fill:#dce8d8,stroke:#294b37,color:#172019;
+  classDef accent fill:#aa593e,stroke:#aa593e,color:#f7f2e7;
+  class Persona,Archivio,Vista,Candidati paper;
+  class Gateway,Broker,Adapter sage;
+  class Agente accent;
 ```
 
-## Quick start
+Il broker è il confine di fiducia. Legge i dati in chiaro, applica la regola di pseudonimizzazione e restituisce al gateway solo uno schema dichiarato. Gli identificativi del provider diventano riferimenti opachi. I metadati non riconosciuti non attraversano il confine.
 
-Requirements: Python 3.11 or later.
+## Prova la demo
+
+La demo usa solo identità e messaggi sintetici. Non richiede credenziali né una casella reale.
+
+### Requisiti
+
+- Python 3.11 o successivo;
+- Git;
+- macOS, Linux o Windows.
+
+### 1. Installa il progetto
 
 ```bash
-git clone https://github.com/your-account/work-assistant.git
+git clone https://github.com/Wulfgardr/work-assistant.git
 cd work-assistant
 python3 -m venv .venv
 ```
 
-Activate the environment:
+Attiva l'ambiente su macOS o Linux:
 
 ```bash
-# macOS or Linux
 source .venv/bin/activate
-cp work-assistant.example.toml work-assistant.toml
 ```
+
+Su Windows PowerShell:
 
 ```powershell
-# Windows PowerShell
 .venv\Scripts\Activate.ps1
-Copy-Item work-assistant.example.toml work-assistant.toml
 ```
 
-Then install on any platform:
+Installa Work Assistant:
 
 ```bash
 python -m pip install .
 ```
 
-Load the two synthetic mailboxes:
+### 2. Crea la configurazione
+
+```bash
+work-assistant --config work-assistant.toml init
+```
+
+Il comando inserisce una cartella dati specifica del sistema operativo. Archivio, chiavi e registro delle identità non vengono collocati nel repository.
+
+### 3. Carica le caselle sintetiche
 
 ```bash
 work-assistant --config work-assistant.toml sync --account personal
@@ -87,164 +128,176 @@ work-assistant --config work-assistant.toml knowledge
 work-assistant --config work-assistant.toml verify
 ```
 
-All runtime data is written to `./workspace/`, which Git ignores.
+Il comando `verify` controlla l'integrità di SQLite e gli hash dei messaggi. Non dimostra che un backup possa essere ripristinato.
 
-The commands above are the local operator surface. Do not expose their raw output to a cloud-backed terminal agent. Agent use goes through the privacy broker and MCP gateway below.
+## Usa Work Assistant con un agente
 
-## Adaptive onboarding
+Codex, Claude e altri client MCP usano la stessa superficie. Il modello non è incorporato nella CLI.
 
-Work Assistant can divide setup between the agent, the local CLI and the human:
-
-```text
-Agent: explain and diagnose → Human: login and 2FA → CLI: store secrets locally
-```
-
-Ask the MCP server for a provider-specific plan, or inspect it directly:
-
-```bash
-work-assistant onboarding-plan --provider demo
-work-assistant onboarding-plan --provider zimbra
-work-assistant --config work-assistant.toml onboarding-status
-```
-
-For Zimbra or Carbonio installations that authenticate through a browser session, complete login and 2FA in the browser, export the HAR locally, then run:
-
-```bash
-work-assistant --config work-assistant.toml import-zimbra-har \
-  --account work \
-  --har /local/path/session.har
-```
-
-The helper extracts only the required session cookie names into `workspace/secrets/`, applies owner-only permissions and never prints their values. It does not delete the HAR. Move or delete that sensitive export yourself after verification.
-
-The agent can inspect onboarding status through MCP, but HAR files, passwords, OTPs and cookie values never pass through the model. The public repository prepares this safe setup boundary; a production Zimbra adapter is not bundled yet.
-
-## Use with an agent
-
-Install the MCP dependency:
+Installa il supporto MCP:
 
 ```bash
 python -m pip install '.[mcp]'
 ```
 
-Start the trusted broker in a local terminal or service before starting the agent:
+### 1. Avvia il broker locale
+
+Apri un terminale locale attendibile e avvia:
 
 ```bash
 work-assistant --config work-assistant.toml broker
 ```
 
-The broker uses an owner-only Unix socket on macOS/Linux and an authenticated named pipe on Windows. If it is unavailable, the MCP gateway fails closed and does not read the archive directly.
+Il broker deve rimanere attivo. Se non è disponibile, il gateway MCP si arresta senza leggere direttamente l'archivio.
 
-### Codex
-
-Register the local MCP server from the repository root:
+In un secondo terminale, recupera i due percorsi necessari:
 
 ```bash
 work-assistant --config work-assistant.toml broker-info
+```
 
+### 2. Registra il server in Codex
+
+Sostituisci i due segnaposto con i valori di `broker-info`:
+
+```bash
 codex mcp add work-assistant -- \
   "$PWD/.venv/bin/work-assistant" \
   mcp \
-  --broker-address '<value from broker-info>' \
-  --broker-auth-file '<value from broker-info>'
+  --broker-address '<BROKER_ADDRESS>' \
+  --broker-auth-file '<BROKER_AUTH_FILE>'
 ```
 
-Do not pass `work-assistant.toml` to the gateway. Only the broker loads mailbox configuration. The gateway receives the safe IPC endpoint and its authentication file.
+Su Windows usa `.venv\Scripts\work-assistant.exe`.
 
-On Windows, replace `.venv/bin/work-assistant` with `.venv\Scripts\work-assistant.exe` in client configuration.
+Esempio di richiesta:
 
-Then ask Codex:
+> Usa Work Assistant. Controlla la modalità di riservatezza, sincronizza la casella `personal`, mostrami gli ultimi messaggi e prepara un candidato di risposta. Non inviare nulla.
 
-> Use Work Assistant. Sync the `personal` account, show the latest messages and prepare a local reply candidate for the project review. Do not send anything.
+La skill facoltativa si trova in [`skills/work-assistant`](skills/work-assistant). La skill aggiunge regole operative, ma non sostituisce il server MCP.
 
-The optional skill is in [`skills/work-assistant`](skills/work-assistant). Copy or symlink it into your Codex skills directory if you want the operating rules to load automatically.
+### 3. Registra il server in Claude Code
 
-### Claude Desktop or Claude Code
+```bash
+claude mcp add work-assistant -- \
+  "$PWD/.venv/bin/work-assistant" \
+  mcp \
+  --broker-address '<BROKER_ADDRESS>' \
+  --broker-auth-file '<BROKER_AUTH_FILE>'
+```
 
-Point an MCP configuration at the same executable:
+Per Claude Desktop, configura un server `stdio` equivalente:
 
 ```json
 {
   "mcpServers": {
     "work-assistant": {
-      "command": "/absolute/path/work-assistant/.venv/bin/work-assistant",
+      "command": "/percorso/assoluto/work-assistant/.venv/bin/work-assistant",
       "args": [
         "mcp",
         "--broker-address",
-        "<value from broker-info>",
+        "<BROKER_ADDRESS>",
         "--broker-auth-file",
-        "<value from broker-info>"
+        "<BROKER_AUTH_FILE>"
       ]
     }
   }
 }
 ```
 
-For Claude Code, the equivalent registration is:
+## Usa la CLI senza un agente
 
-```bash
-claude mcp add work-assistant -- \
-  "$PWD/.venv/bin/work-assistant" \
-  mcp \
-  --broker-address '<value from broker-info>' \
-  --broker-auth-file '<value from broker-info>'
-```
-
-### Intelligent use from a terminal
-
-The `work-assistant` CLI is deterministic; it does not contain a model. A terminal agent must connect through MCP so the broker can apply privacy policy. Raw CLI commands are for a trusted local human operator:
+La CLI è deterministica: non contiene un modello e non interpreta richieste in linguaggio naturale.
 
 ```bash
 work-assistant --config work-assistant.toml list --account personal --limit 10
 work-assistant --config work-assistant.toml show --account personal --id p-001
 ```
 
-To store a proposed reply manually without writing to a provider:
+Per salvare un candidato di risposta locale:
 
 ```bash
-printf 'Thanks. I will review the note by Friday.\n' > reply.txt
+printf 'Grazie. Verifico il documento entro venerdì.\n' > risposta.txt
 work-assistant --config work-assistant.toml draft-candidate \
   --account personal \
   --to sam@example.test \
-  --subject 'Re: Project review' \
+  --subject 'Re: Revisione del progetto' \
   --in-reply-to p-001 \
-  --body-file reply.txt
+  --body-file risposta.txt
 ```
 
-## Configuration
+La risposta include `sent: false`. Nessun contenuto viene scritto sul provider.
 
-Each table below `[accounts]` is an independent mailbox:
+Un agente con accesso a un terminale deve usare MCP. Non deve leggere direttamente SQLite né l'output in chiaro della CLI.
+
+## Configura più caselle
+
+Ogni tabella sotto `[accounts]` descrive una casella indipendente:
 
 ```toml
 schema_version = 1
-data_dir = "./workspace"
+data_dir = "/percorso/esterno/al/repository"
 
 [privacy]
 mode = "all"
 default_action = "pseudonymize"
-entities_path = "./private/privacy-entities.json"
 
 [accounts.personal]
 provider = "demo"
 source = "./examples/demo-mailbox.jsonl"
 address = "alex@example.test"
+
+[accounts.team]
+provider = "demo"
+source = "./examples/team-mailbox.jsonl"
+address = "team@example.test"
 ```
 
-Keep credentials, exports and operational data outside Git. Use environment variables or an adapter-specific secret store for real providers.
+Il repository include solo l'adapter dimostrativo. Gli adapter reali devono implementare il contratto descritto in [`docs/PROVIDER_ADAPTERS.md`](docs/PROVIDER_ADAPTERS.md).
 
-### Privacy modes
+### Zimbra e Carbonio
 
-- `off` — no transformation. Agent-visible content may reach the model provider.
-- `all` — pseudonymize every sender before content crosses the broker boundary.
-- `selective` — use ordered sender rules; the first match wins.
+La versione pubblica include un onboarding locale per preparare una sessione Zimbra o Carbonio da un file HAR. L'adapter Zimbra operativo non è incluso.
 
-Use explicit actions instead of ambiguous opt-in/opt-out labels:
+```mermaid
+sequenceDiagram
+  participant A as Agente
+  participant P as Persona
+  participant B as Browser
+  participant C as CLI locale
+  A->>P: Spiega i passaggi e controlla lo stato
+  P->>B: Esegue login e autenticazione a due fattori
+  P->>C: Importa localmente il file HAR
+  C-->>P: Conferma solo nomi dei cookie e stato
+  Note over A,C: Password, OTP, HAR e valori dei cookie non entrano nel modello
+```
+
+Il comando locale è:
+
+```bash
+work-assistant --config work-assistant.toml import-zimbra-har \
+  --account work \
+  --har /percorso/locale/session.har
+```
+
+Il comando non elimina il file HAR. Dopo la verifica, sposta o elimina l'esportazione con una procedura adeguata al suo contenuto sensibile.
+
+## Come protegge i dati
+
+Work Assistant offre tre modalità:
+
+| Modalità | Comportamento |
+| --- | --- |
+| `off` | Nessuna trasformazione. Il contenuto visibile all'agente può raggiungere il fornitore del modello. |
+| `all` | Pseudonimizza gli identificativi strutturati e il testo riconosciuto. È il valore della configurazione di esempio. |
+| `selective` | Applica regole ordinate per mittente. La prima regola corrispondente prevale. |
+
+Esempio di regole selettive:
 
 ```toml
 [privacy]
 mode = "selective"
 default_action = "pseudonymize"
-entities_path = "./private/privacy-entities.json"
 
 [[privacy.sender_rules]]
 pattern = "newsletter@example.test"
@@ -255,74 +308,73 @@ pattern = "*@sensitive.example"
 action = "pseudonymize"
 ```
 
-The optional entity registry protects names or organizations wherever they occur, including messages from an `allow_raw` sender:
+La risposta dell'agente contiene solo un identificativo opaco della regola, non il suo valore letterale.
 
-```json
-{
-  "PERSON": ["Alex Example"],
-  "ORG": ["Example Clinic"]
-}
-```
+Il registro facoltativo delle identità si trova, per impostazione predefinita, in `<data_dir>/privacy/entities.json`. Su sistemi POSIX deve appartenere all'utente e avere permessi `0600`.
 
-This is reversible pseudonymization, not guaranteed anonymity. Rare facts, unmatched prose and writing style can still identify a person.
+La pseudonimizzazione è reversibile e non garantisce anonimato. Fatti rari, contesto, stile di scrittura o termini non riconosciuti possono identificare una persona.
 
-Model-generated analyses can return through `mail_local_artifact`. The broker accepts only `analysis`, `summary` or `contact_note`, restores known aliases, stores the clear result locally and returns only an artifact ID. A trusted operator can inspect it with `work-assistant artifact-show --id ID`.
+Perché il broker costituisca un confine reale, la cartella dati deve restare fuori da ogni workspace leggibile dall'agente. Il broker rifiuta questa configurazione, salvo un override esplicito e non sicuro destinato alle sole demo controllate.
 
-### Machine-specific privacy benchmark
+Leggi [`SECURITY.md`](SECURITY.md) prima di usare messaggi reali.
 
-Run a synthetic benchmark before choosing a mode:
+## Revisione di sicurezza Daybreak
 
-```bash
-work-assistant benchmark-privacy \
-  --iterations 200 \
-  --body-kib 16 \
-  --budget-ms 25
-```
+Il 24 agosto 2026 una revisione Daybreak ha analizzato il broker, la pseudonimizzazione, l'IPC e la superficie MCP. La revisione ha rilevato sette problemi: uno di gravità media e sei di gravità bassa.
 
-It compares broker round trips for `off`, `all`, selective `allow_raw` and selective pseudonymization. The recommendation uses the overhead budget you provide. It excludes provider, model and internet latency and never reads real mail. Performance does not make `allow_raw` safe; it only helps you understand the local cost.
+La versione `0.3.0` applica queste correzioni:
 
-One measured example is available in [`docs/benchmarks/privacy-broker-macos-2026-08-24.md`](docs/benchmarks/privacy-broker-macos-2026-08-24.md). Always prefer a fresh run on the target machine.
+- dati e chiavi fuori dal repository per impostazione predefinita;
+- rifiuto del broker quando il deposito protetto ricade nel workspace dell'agente;
+- registro delle identità esterno e con controllo dei permessi;
+- schema MCP a lista chiusa, riferimenti opachi e metadati del provider esclusi;
+- identificativi opachi per le regole selettive;
+- numero fisso di worker e scadenza per le connessioni inattive;
+- timeout complessivo su connessione, autenticazione, richiesta e risposta.
 
-## Operating systems
+Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md).
 
-The core, policy, vault, benchmark and broker use Python APIs available on Windows, Linux and macOS:
+## Backup e ripristino
 
-| Platform | Local broker transport | Isolation direction |
-| --- | --- | --- |
-| Windows | Authenticated named pipe | Broker service plus agent sandbox/container |
-| Linux | Owner-only Unix socket | Service sandbox or container with isolated data volume |
-| macOS | Owner-only Unix socket | Sandboxed service or container with isolated data volume |
+Work Assistant conserva messaggi normalizzati e relativi hash. Questo rende l'archivio controllabile, ma non lo rende automaticamente un backup resiliente.
 
-The broker data directory must remain outside the agent-readable workspace. The code is designed for all three platforms; the GitHub CI matrix is the publication gate for claiming verified cross-platform behavior.
+Per dichiarare un backup verificato devi definire e provare:
 
-See [`docs/PLATFORMS.md`](docs/PLATFORMS.md) for the distinction between designed and currently verified support.
+- quali messaggi e allegati vengono inclusi;
+- cifratura e gestione delle chiavi;
+- frequenza, conservazione e versioni;
+- verifica degli hash;
+- procedura di ripristino in un ambiente isolato;
+- confronto tra contenuto atteso e contenuto ripristinato.
 
-## Add a provider
+La funzione `verify` controlla l'archivio corrente. Non esegue un ripristino.
 
-Implement the small `MailProvider` protocol in [`src/work_assistant/providers/base.py`](src/work_assistant/providers/base.py), then register the adapter in `provider_for()`.
+## Stato del progetto
 
-An adapter owns provider-specific authentication, pagination and identifiers. The core owns normalized messages, local integrity, knowledge views and draft candidates. See [`docs/PROVIDER_ADAPTERS.md`](docs/PROVIDER_ADAPTERS.md).
+Work Assistant è un progetto **alpha**.
 
-## Safety model
+Disponibile:
 
-- The demo adapter is read-only.
-- MCP runs over local `stdio`; the server opens no network port.
-- Broker IPC uses Unix sockets or Windows named pipes, never a listening TCP port.
-- Alias values are encrypted with AES-GCM; stable alias identifiers use keyed HMAC.
-- `off`, `all` and ordered `selective` rules make model exposure explicit.
-- `mail_draft_candidate` writes only to the local archive.
-- Onboarding MCP tools never accept or return secret values.
-- The public core exposes no send tool.
-- Runtime data and common credential formats are ignored by Git.
-- A knowledge view is derived data, not a backup or provider source of truth.
+- core indipendente dal provider;
+- configurazione multi-casella;
+- adapter demo sintetico;
+- archivio SQLite con hash;
+- vista locale di contatti e interazioni;
+- CLI;
+- gateway MCP e broker locale;
+- pseudonimi reversibili;
+- skill per agenti;
+- onboarding preparatorio Zimbra e Carbonio.
 
-Before using real mail, read [`SECURITY.md`](SECURITY.md). Provider adapters must document their read and write capabilities explicitly.
+Non disponibile:
 
-## Status
+- adapter di produzione per provider reali;
+- invio di email;
+- prova completa di backup e ripristino;
+- pseudonimizzazione del contenuto binario degli allegati;
+- garanzia di anonimato.
 
-This is an alpha foundation extracted from a working local-first system. The provider-neutral core, demo adapter, multi-account configuration, SQLite archive, privacy broker, encrypted alias vault, CLI and MCP gateway are implemented. Production provider adapters and attachment-content pseudonymization remain future work.
-
-## Development
+## Sviluppo e contributi
 
 ```bash
 python -m pip install '.[dev,mcp]'
@@ -331,4 +383,8 @@ python scripts/privacy_check.py
 work-assistant benchmark-privacy --iterations 50
 ```
 
-MIT licensed. Contributions should use synthetic fixtures only.
+Usa solo dati sintetici in codice, test, screenshot, issue e pull request. Leggi [`CONTRIBUTING.md`](CONTRIBUTING.md) per le regole del progetto.
+
+## Licenza
+
+Work Assistant è distribuito con licenza [MIT](LICENSE).

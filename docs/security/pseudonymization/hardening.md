@@ -1,26 +1,22 @@
-# Security Hardening Review: Agent data pseudonymization
+# Revisione di hardening: pseudonimizzazione dei dati per agenti
 
-## Evidence Basis
+## Evidenze
 
-I inspected the current MCP, archive and configuration boundaries at commit `ffdd499`. The archive is deliberately local, but the MCP server currently returns message content directly. The evidence is defined in [context.md](context.md).
+La revisione ha analizzato MCP, archivio e configurazione al commit `ffdd499`. L'archivio era locale, ma il server MCP restituiva direttamente il contenuto dei messaggi. Le evidenze sono definite in [`context.md`](context.md).
 
-## Constraints
+## Vincoli
 
-We need reversible aliases, multi-account continuity, configurable sender policies and useful drafts. A cloud model must not receive the reversal map. Users may disable the feature, but the configuration must make that exposure explicit. No latency budget was supplied, so performance claims require a synthetic benchmark.
+Il progetto richiede alias reversibili, continuità tra più account, regole per mittente e candidati di risposta utili. Il modello cloud non deve ricevere la mappa di inversione. Una persona può disabilitare la funzione, ma la configurazione deve rendere esplicita l'esposizione.
 
-## Opportunity Portfolio
+## Decisione
 
-| Opportunity | Evidence | Options | Recommendation | Proposal |
-| --- | --- | --- | --- | --- |
-| Separate clear mail from the agent boundary | Raw MCP responses and co-located archive (`E001`–`E005`) | Inline filter; isolated broker; local-model-only | Isolated broker with `off`, `all` and `selective` policies | [Agent privacy boundary](proposals/agent-privacy-boundary.md) |
+È stato scelto un broker locale isolabile con modalità `off`, `all` e `selective`. Il broker conserva dati in chiaro, mappa degli alias e ripristino. Il gateway MCP riceve solo payload filtrati.
 
-## Recommendation Summary
+Un filtro nello stesso processo resta utile come difesa aggiuntiva, ma non protegge i dati se l'agente può leggere direttamente archivio e chiave.
 
-We selected the isolated broker. It keeps clear data, alias mapping and restoration in a trusted local process. The MCP gateway receives only policy-filtered payloads and returns alias-bearing draft candidates to the broker. Inline filtering remains useful as defense in depth, but it cannot protect data when an agent can read the archive and key directly.
+## Decisioni operative
 
-## Next Decisions
-
-- Deployment must keep the broker data directory outside the agent-readable workspace.
-- Sender rules use explicit `pseudonymize` and `allow_raw` actions.
-- Entity registry entries apply globally so an allowed message cannot casually reveal a protected person mentioned elsewhere.
-
+- La cartella dati del broker deve stare fuori dal workspace dell'agente.
+- Le regole usano le azioni esplicite `pseudonymize` e `allow_raw`.
+- Il registro globale delle identità si applica anche ai messaggi consentiti in chiaro.
+- Il gateway riceve uno schema a lista chiusa e riferimenti opachi.

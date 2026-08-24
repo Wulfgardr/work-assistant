@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import sys
 import tomllib
 
 
@@ -37,9 +39,21 @@ class AppConfig:
     data_dir: Path
     accounts: dict[str, AccountConfig]
     privacy: PrivacyConfig
+    unsafe_allow_workspace_data: bool
 
 
-def _load_privacy(raw: object, base: Path) -> PrivacyConfig:
+def default_data_dir() -> Path:
+    """Return the per-user application data directory for this platform."""
+    if os.name == "nt":
+        root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+        return root / "WorkAssistant"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "WorkAssistant"
+    root = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+    return root / "work-assistant"
+
+
+def _load_privacy(raw: object, base: Path, data_dir: Path) -> PrivacyConfig:
     item = raw if isinstance(raw, dict) else {}
     mode = str(item.get("mode", "off")).strip().lower()
     if mode not in {"off", "all", "selective"}:
@@ -59,7 +73,7 @@ def _load_privacy(raw: object, base: Path) -> PrivacyConfig:
             raise ConfigError(f"privacy.sender_rules[{index}] requires pattern and a valid action")
         rules.append(SenderRule(pattern, action))
     entities = item.get("entities_path")
-    entities_path = (base / str(entities)).resolve() if entities else None
+    entities_path = (base / str(entities)).resolve() if entities else data_dir / "privacy" / "entities.json"
     return PrivacyConfig(mode, default, tuple(rules), entities_path)
 
 
@@ -70,7 +84,12 @@ def load_config(path: str | Path) -> AppConfig:
     if raw.get("schema_version") != 1:
         raise ConfigError("schema_version must be 1")
     base = config_path.parent
-    data_dir = (base / str(raw.get("data_dir", "./workspace"))).resolve()
+    configured_data_dir = raw.get("data_dir")
+    data_dir = (
+        (base / str(configured_data_dir)).expanduser().resolve()
+        if configured_data_dir
+        else default_data_dir().expanduser().resolve()
+    )
     raw_accounts = raw.get("accounts")
     if not isinstance(raw_accounts, dict) or not raw_accounts:
         raise ConfigError("at least one account is required")
@@ -86,4 +105,10 @@ def load_config(path: str | Path) -> AppConfig:
         if "source" in options:
             options["source"] = str((base / str(options["source"])).resolve())
         accounts[name] = AccountConfig(name, provider, address, options)
-    return AppConfig(config_path, data_dir, accounts, _load_privacy(raw.get("privacy"), base))
+    return AppConfig(
+        config_path,
+        data_dir,
+        accounts,
+        _load_privacy(raw.get("privacy"), base, data_dir),
+        bool(raw.get("unsafe_allow_workspace_data", False)),
+    )

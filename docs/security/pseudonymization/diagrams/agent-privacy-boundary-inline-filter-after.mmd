@@ -1,7 +1,7 @@
 flowchart LR
-  Provider[Mail provider] --> Core[Work Assistant core]
-  Core --> Archive[(Clear local archive)]
-  Archive --> MCP[MCP plus inline filter and vault]
-  MCP --> Agent[Cloud-backed agent]
-  Agent --> MCP
-  MCP --> Archive
+  Provider[Provider email] --> Core[Core di Work Assistant]
+  Core --> Archivio[(Archivio locale in chiaro)]
+  Archivio --> MCP[MCP con filtro e cassaforte]
+  MCP --> Agente[Agente collegato al cloud]
+  Agente --> MCP
+  MCP --> Archivio

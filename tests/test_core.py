@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
+from importlib.resources import files
 
 from work_assistant.archive import LocalArchive
 from work_assistant.config import load_config
@@ -11,9 +14,18 @@ from work_assistant.service import WorkAssistant
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_packaged_configuration_matches_repository_example() -> None:
+    packaged = files("work_assistant").joinpath("templates/work-assistant.example.toml")
+    assert packaged.read_text(encoding="utf-8") == (ROOT / "work-assistant.example.toml").read_text()
+
+
 def test_multi_account_sync_and_archive(tmp_path: Path) -> None:
     config_text = (ROOT / "work-assistant.example.toml").read_text()
-    config_text = config_text.replace("./workspace", (tmp_path / "workspace").as_posix())
+    config_text = config_text.replace(
+        "schema_version = 1\n",
+        f'schema_version = 1\ndata_dir = "{(tmp_path / "workspace").as_posix()}"\n',
+        1,
+    )
     config_path = tmp_path / "work-assistant.toml"
     config_path.write_text(config_text)
     examples = tmp_path / "examples"
@@ -64,3 +76,24 @@ def test_zimbra_onboarding_keeps_secret_values_local(tmp_path: Path) -> None:
         assert destination.stat().st_mode & 0o777 == 0o600
     assert "synthetic-zm-cookie-value" in destination.read_text()
     assert onboarding_plan("zimbra")["adapter_status"] == "onboarding_ready_adapter_not_bundled"
+
+
+def test_init_writes_external_platform_data_directory(tmp_path: Path) -> None:
+    config_path = tmp_path / "work-assistant.toml"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "work_assistant",
+            "--config",
+            str(config_path),
+            "init",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    created = load_config(config_path)
+    assert created.data_dir != tmp_path / "workspace"
+    assert not created.data_dir.is_relative_to(ROOT)
+    assert str(created.data_dir) in result.stdout

@@ -1,3 +1,3 @@
-"""Work Assistant public core."""
+"""Core pubblico di Work Assistant."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

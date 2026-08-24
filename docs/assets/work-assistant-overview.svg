@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Come lavora Work Assistant</title>
+  <desc id="desc">Le caselle di posta alimentano un archivio locale. Un broker applica le regole di riservatezza e offre strumenti controllati all'agente. La persona mantiene il controllo sulle azioni.</desc>
+  <rect width="1200" height="520" fill="#f7f2e7"/>
+  <path d="M0 394C190 340 331 457 520 404c188-53 325-18 680-93v209H0Z" fill="#dce8d8"/>
+  <g font-family="Avenir Next, system-ui, sans-serif" fill="#172019">
+    <text x="72" y="82" font-size="42" font-weight="700">Dalla posta a un lavoro controllato</text>
+    <text x="72" y="120" font-size="20" fill="#3c493f">I dati restano locali. L’agente riceve solo ciò che la regola consente.</text>
+  </g>
+  <g stroke="#294b37" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M264 270h102"/>
+    <path d="m350 256 18 14-18 14"/>
+    <path d="M582 270h101"/>
+    <path d="m667 256 18 14-18 14"/>
+    <path d="M900 270h102"/>
+    <path d="m986 256 18 14-18 14"/>
+  </g>
+  <g font-family="Avenir Next, system-ui, sans-serif" text-anchor="middle">
+    <g>
+      <rect x="72" y="178" width="192" height="184" rx="34" fill="#eee5d4" stroke="#294b37" stroke-width="4"/>
+      <path d="M112 229h112v78H112Z" fill="#f7f2e7" stroke="#294b37" stroke-width="4"/>
+      <path d="m113 230 55 43 55-43" fill="none" stroke="#aa593e" stroke-width="4"/>
+      <text x="168" y="338" font-size="18" fill="#172019" font-weight="600">Caselle</text>
+    </g>
+    <g>
+      <rect x="388" y="178" width="194" height="184" rx="12" fill="#f7f2e7" stroke="#294b37" stroke-width="4"/>
+      <ellipse cx="485" cy="227" rx="49" ry="18" fill="#dce8d8" stroke="#294b37" stroke-width="4"/>
+      <path d="M436 227v57c0 10 22 18 49 18s49-8 49-18v-57" fill="#dce8d8" stroke="#294b37" stroke-width="4"/>
+      <text x="485" y="338" font-size="18" fill="#172019" font-weight="600">Archivio locale</text>
+    </g>
+    <g>
+      <rect x="704" y="178" width="196" height="184" rx="34" fill="#dce8d8" stroke="#294b37" stroke-width="4"/>
+      <path d="M754 269c0-34 21-59 48-59s48 25 48 59" fill="none" stroke="#aa593e" stroke-width="8" stroke-linecap="round"/>
+      <rect x="766" y="252" width="72" height="58" rx="12" fill="#f7f2e7" stroke="#294b37" stroke-width="4"/>
+      <circle cx="802" cy="278" r="8" fill="#c49645"/>
+      <text x="802" y="338" font-size="18" fill="#172019" font-weight="600">Broker locale</text>
+    </g>
+    <g>
+      <rect x="1020" y="178" width="108" height="184" rx="54" fill="#17231b"/>
+      <circle cx="1074" cy="238" r="18" fill="#c49645"/>
+      <path d="M1047 290c15-19 39-19 54 0" fill="none" stroke="#f7f2e7" stroke-width="6" stroke-linecap="round"/>
+      <text x="1074" y="338" font-size="18" fill="#f7f2e7" font-weight="600">Agente</text>
+    </g>
+  </g>
+  <g font-family="Avenir Next, system-ui, sans-serif">
+    <rect x="388" y="408" width="512" height="62" rx="31" fill="#aa593e"/>
+    <text x="644" y="447" text-anchor="middle" font-size="21" fill="#f7f2e7" font-weight="700">La persona autorizza le azioni ad alto impatto</text>
+  </g>
+</svg>

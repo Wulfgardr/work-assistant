@@ -20,32 +20,32 @@ def create_server(
 
     @mcp.tool(name="mail_accounts")
     def mail_accounts() -> list[dict[str, str]]:
-        """List configured account names, provider adapters, and addresses."""
+        """Elenca account configurati, adapter e indirizzi."""
         return client.call("accounts")
 
     @mcp.tool(name="mail_onboarding_plan")
     def mail_onboarding_plan(provider: str) -> dict[str, Any]:
-        """Return an adaptive human-agent setup plan without requesting secrets."""
+        """Restituisce un piano persona-agente senza richiedere segreti."""
         return onboarding_plan(provider)
 
     @mcp.tool(name="mail_onboarding_status")
     def mail_onboarding_status() -> dict[str, Any]:
-        """Inspect account setup state without reading or returning secret values."""
+        """Controlla la configurazione senza leggere o restituire segreti."""
         return client.call("onboarding_status")
 
     @mcp.tool(name="mail_sync")
     def mail_sync(account: str) -> dict[str, object]:
-        """Acquire messages for one account and update the local archive."""
+        """Acquisisce i messaggi di un account e aggiorna l'archivio locale."""
         return client.call("sync", account=account)
 
     @mcp.tool(name="mail_list")
     def mail_list(account: str | None = None, limit: int = 20) -> list[dict[str, object]]:
-        """List message metadata from the local archive."""
+        """Elenca i metadati dei messaggi presenti nell'archivio locale."""
         return client.call("list", account=account, limit=max(1, min(limit, 100)))
 
     @mcp.tool(name="mail_get")
     def mail_get(account: str, message_id: str) -> dict[str, Any]:
-        """Read one complete message from the local archive."""
+        """Legge un messaggio completo dall'archivio locale."""
         return client.call("get", account=account, message_id=message_id)
 
     @mcp.tool(name="mail_draft_candidate")
@@ -56,7 +56,7 @@ def create_server(
         body: str,
         in_reply_to: str | None = None,
     ) -> dict[str, object]:
-        """Store a local draft candidate. This tool never writes to a provider or sends mail."""
+        """Salva un candidato locale. Non scrive sul provider e non invia email."""
         return client.call(
             "draft_candidate",
             account=account,
@@ -68,22 +68,22 @@ def create_server(
 
     @mcp.tool(name="mail_knowledge")
     def mail_knowledge() -> dict[str, object]:
-        """Build a derived contact and interaction view from the local archive."""
+        """Costruisce una vista derivata di contatti e interazioni."""
         return client.call("knowledge")
 
     @mcp.tool(name="mail_local_artifact")
     def mail_local_artifact(kind: str, title: str, body: str) -> dict[str, Any]:
-        """Restore known aliases and store an analysis, summary, or contact note locally."""
+        """Ripristina alias conosciuti e salva localmente un'analisi o una nota."""
         return client.call("local_artifact", kind=kind, title=title, body=body)
 
     @mcp.tool(name="mail_verify_archive")
     def mail_verify_archive() -> dict[str, object]:
-        """Run SQLite integrity and payload hash checks."""
+        """Controlla integrità SQLite e hash dei payload."""
         return client.call("verify")
 
     @mcp.tool(name="mail_privacy_status")
     def mail_privacy_status() -> dict[str, Any]:
-        """Report active privacy mode and rule counts without keys or clear aliases."""
+        """Riporta modalità e numero di regole senza chiavi o alias in chiaro."""
         return client.call("privacy_status")
 
     return mcp

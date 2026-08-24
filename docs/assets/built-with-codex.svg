@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="292" height="52" viewBox="0 0 292 52" role="img" aria-labelledby="title desc">
+  <title id="title">Costruito con Codex</title>
+  <desc id="desc">Badge che dichiara l'uso di Codex nella costruzione del progetto.</desc>
+  <path d="M10 2h170v48H10A8 8 0 0 1 2 42V10a8 8 0 0 1 8-8Z" fill="#dce8d8" stroke="#294b37" stroke-width="2"/>
+  <path d="M180 2h102a8 8 0 0 1 8 8v32a8 8 0 0 1-8 8H180Z" fill="#17231b" stroke="#17231b" stroke-width="2"/>
+  <path d="M180 8v36" stroke="#aa593e" stroke-width="4"/>
+  <g font-family="Avenir Next, system-ui, sans-serif" font-size="22" dominant-baseline="middle">
+    <text x="18" y="27" fill="#172019">costruito con</text>
+    <text x="196" y="27" fill="#f7f2e7" font-weight="600">Codex</text>
+  </g>
+</svg>

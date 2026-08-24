@@ -1,31 +1,31 @@
-# Implementation handoff: isolated broker
+# Implementazione del broker isolato
 
-## Selected policy
+## Regole selezionate
 
-- `mode = "off"`: no transformation; configuration must report cloud exposure.
-- `mode = "all"`: every agent-visible message is pseudonymized.
-- `mode = "selective"`: ordered sender rules choose `pseudonymize` or `allow_raw`; `default_action` is mandatory.
-- Global entity registry replacements apply to all modes except `off`.
+- `mode = "off"`: nessuna trasformazione; la configurazione deve segnalare l'esposizione.
+- `mode = "all"`: ogni messaggio visibile all'agente viene pseudonimizzato.
+- `mode = "selective"`: regole ordinate scelgono `pseudonymize` o `allow_raw`; `default_action` è obbligatoria.
+- Il registro globale delle identità si applica in tutte le modalità tranne `off`.
 
-## Work packages
+## Componenti
 
-1. Parse and validate privacy configuration without loading secrets.
-2. Create workspace-local aliases with keyed stable identifiers.
-3. Store reversal values with authenticated encryption and owner-only permissions.
-4. Run raw archive operations inside a broker using Unix sockets on macOS/Linux and named pipes on Windows.
-5. Expose only filtered list, get, knowledge, draft-candidate, sync and integrity methods.
-6. Connect MCP tools using only endpoint and authentication-file settings; never load mailbox configuration in the gateway.
-7. Benchmark synthetic workloads and document measured scope.
+1. Configurazione validata senza caricare segreti nel gateway.
+2. Alias stabili derivati da una chiave locale.
+3. Mappa di inversione cifrata e accessibile al proprietario.
+4. Broker su socket Unix o named pipe autenticata.
+5. Schema di risposta esplicito, senza copia dei metadati del provider.
+6. Gateway MCP configurato solo con endpoint e file di autenticazione.
+7. Benchmark su carichi sintetici.
 
-## Acceptance criteria
+## Criteri di accettazione
 
-- No protected clear value appears in broker responses or gateway logs.
-- Alias restoration rejects unknown tokens and occurs only while creating a local artifact.
-- Rules are deterministic, first-match and reported with each payload.
-- The broker never falls back from `all` or `selective` to `off`.
-- Tests and benchmark fixtures contain synthetic data only.
-- Deployment instructions keep broker storage outside the agent-readable workspace.
+- Nessun valore protetto in chiaro compare nelle risposte del broker.
+- Il ripristino rifiuta alias sconosciuti.
+- Le regole sono deterministiche e restituiscono solo un ID opaco.
+- Un errore non degrada `all` o `selective` a `off`.
+- Archivio, chiavi e registro identità restano fuori dal workspace dell'agente.
+- Connessioni e worker hanno limiti espliciti.
 
-## Rollback
+## Ripristino della versione precedente
 
-Stop the gateway and broker, preserve the archive and encrypted vault, and restore the previous local-only command. Do not delete the vault while alias-bearing drafts or analyses still exist.
+Arresta gateway e broker. Conserva archivio e cassaforte cifrata. Non eliminare la cassaforte finché esistono candidati o analisi che contengono alias.

@@ -1,12 +1,12 @@
-# Contributing
+# Contribuire a Work Assistant
 
-Keep changes small, provider-neutral and testable.
+Mantieni ogni modifica piccola, indipendente dal provider e verificabile.
 
-1. Use synthetic identities and messages only.
-2. Do not commit exports, credentials, cookies, tokens or operational databases.
-3. Keep provider behavior inside an adapter.
-4. Keep the public core free of implicit network access.
-5. Add tests for observable behavior and failure states.
-6. Run `pytest` and `python scripts/privacy_check.py` before opening a pull request.
+1. Usa solo identità e messaggi sintetici.
+2. Non registrare in Git esportazioni, credenziali, cookie, token o database operativi.
+3. Inserisci il comportamento specifico di un servizio nel relativo adapter.
+4. Mantieni il core pubblico privo di accessi di rete impliciti.
+5. Aggiungi test per il comportamento osservabile e per gli stati di errore.
+6. Esegui `pytest` e `python scripts/privacy_check.py` prima di aprire una pull request.
 
-Sending email is outside the public core. Proposals to add provider-side writes must define an explicit capability, dry-run behavior, confirmation boundary and verification receipt.
+L'invio di email non appartiene al core pubblico. Una proposta di scrittura sul provider deve definire capacità, anteprima, conferma e ricevuta di verifica come confini separati.

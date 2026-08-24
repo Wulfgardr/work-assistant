@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Tre capacità di Work Assistant</title>
+  <desc id="desc">Tre schede descrivono archivio locale, uso con agenti e controllo umano.</desc>
+  <rect width="1200" height="360" fill="#f7f2e7"/>
+  <g font-family="Avenir Next, system-ui, sans-serif">
+    <g transform="translate(56 48)">
+      <rect width="330" height="264" rx="14" fill="#eee5d4" stroke="#294b37" stroke-width="3"/>
+      <circle cx="54" cy="56" r="25" fill="#c49645"/>
+      <path d="M39 56h30M54 41v30" stroke="#172019" stroke-width="4" stroke-linecap="round"/>
+      <text x="32" y="116" font-size="25" font-weight="700" fill="#172019">Memoria locale</text>
+      <text x="32" y="154" font-size="17" fill="#3c493f">Archivia messaggi normalizzati</text>
+      <text x="32" y="183" font-size="17" fill="#3c493f">e ricostruisce contatti e relazioni.</text>
+      <path d="M32 220h145" stroke="#aa593e" stroke-width="5"/>
+    </g>
+    <g transform="translate(435 48)">
+      <rect width="330" height="264" rx="42" fill="#dce8d8" stroke="#294b37" stroke-width="3"/>
+      <circle cx="54" cy="56" r="25" fill="#78927a"/>
+      <path d="M41 61c8-20 18-20 26 0" fill="none" stroke="#f7f2e7" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="54" cy="47" r="6" fill="#f7f2e7"/>
+      <text x="32" y="116" font-size="25" font-weight="700" fill="#172019">Superficie agente</text>
+      <text x="32" y="154" font-size="17" fill="#3c493f">MCP offre strumenti tipizzati</text>
+      <text x="32" y="183" font-size="17" fill="#3c493f">a Codex, Claude e altri client.</text>
+      <path d="M32 220h145" stroke="#aa593e" stroke-width="5"/>
+    </g>
+    <g transform="translate(814 48)">
+      <rect width="330" height="264" rx="14" fill="#f7f2e7" stroke="#294b37" stroke-width="3"/>
+      <circle cx="54" cy="56" r="25" fill="#aa593e"/>
+      <path d="m42 56 8 8 17-19" fill="none" stroke="#f7f2e7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="32" y="116" font-size="25" font-weight="700" fill="#172019">Controllo umano</text>
+      <text x="32" y="154" font-size="17" fill="#3c493f">Le bozze restano locali.</text>
+      <text x="32" y="183" font-size="17" fill="#3c493f">Il core pubblico non invia email.</text>
+      <path d="M32 220h145" stroke="#aa593e" stroke-width="5"/>
+    </g>
+  </g>
+</svg>

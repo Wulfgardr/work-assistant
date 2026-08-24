@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Marchio di Work Assistant</title>
+  <desc id="desc">Una busta su un campo verde salvia, protetta da un arco color terracotta.</desc>
+  <rect width="256" height="256" rx="54" fill="#f7f2e7"/>
+  <path d="M42 73c0-13 10-23 23-23h126c13 0 23 10 23 23v91c0 13-10 23-23 23H65c-13 0-23-10-23-23Z" fill="#dce8d8" stroke="#294b37" stroke-width="10"/>
+  <path d="m52 68 76 58 76-58" fill="none" stroke="#294b37" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M84 205c0-31 20-54 44-54s44 23 44 54" fill="none" stroke="#aa593e" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="128" cy="151" r="8" fill="#c49645"/>
+</svg>

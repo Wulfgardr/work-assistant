@@ -1,13 +1,13 @@
-# Agent privacy
+# Riservatezza nell'uso con agenti
 
-Read this reference before using mail content with an agent.
+Leggi questa procedura prima di usare contenuti email con un agente.
 
-1. Call `mail_privacy_status` before the first content request.
-2. If mode is `off`, tell the user that agent-visible mail may be sent to the model provider. Do not silently continue with sensitive content.
-3. In `all` mode, use only aliases returned by Work Assistant. Never invent or edit an alias.
-4. In `selective` mode, inspect `_privacy.action` on every result. `allow_raw` means the payload was intentionally not pseudonymized for that sender.
-5. Create draft candidates with the returned aliases. The broker restores them locally and rejects unknown or malformed aliases.
-6. Use `mail_local_artifact` for alias-bearing analyses, summaries or contact notes that must be restored locally. The tool returns only an opaque local ID.
-7. Do not use raw CLI `list`, `show`, `knowledge`, `artifact-show` or direct SQLite reads from a cloud-backed agent.
+1. Chiama `mail_privacy_status` prima della prima richiesta di contenuto.
+2. Se la modalità è `off`, avvisa che il contenuto visibile all'agente può raggiungere il fornitore del modello.
+3. In modalità `all`, usa solo alias e riferimenti restituiti da Work Assistant. Non modificarli.
+4. In modalità `selective`, controlla `_privacy.action`. `allow_raw` indica un'esposizione intenzionale.
+5. Crea candidati di risposta con gli alias restituiti. Il broker ripristina quelli conosciuti e rifiuta gli altri.
+6. Usa `mail_local_artifact` per analisi o note che devono essere ripristinate localmente. Lo strumento restituisce solo un ID opaco.
+7. Un agente cloud non deve usare i comandi CLI in chiaro né leggere direttamente SQLite.
 
-Pseudonymization reduces direct identifier disclosure. It does not guarantee anonymity or remove identifying context from unmatched prose.
+La pseudonimizzazione riduce l'esposizione degli identificativi diretti. Non garantisce anonimato e non elimina il contesto identificativo dal testo non riconosciuto.

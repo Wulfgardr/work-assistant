@@ -19,35 +19,35 @@ def onboarding_plan(provider: str) -> dict[str, Any]:
             "provider": "demo",
             "adapter_status": "available",
             "steps": [
-                {"actor": "agent", "action": "explain that the fixture contains synthetic messages"},
-                {"actor": "human", "action": "choose an account name and local JSONL source"},
-                {"actor": "cli", "action": "write configuration without credentials"},
-                {"actor": "agent", "action": "sync, list and verify the local archive"},
+                {"actor": "agente", "action": "spiega che la fixture contiene messaggi sintetici"},
+                {"actor": "persona", "action": "sceglie nome account e fonte JSONL locale"},
+                {"actor": "cli", "action": "scrive la configurazione senza credenziali"},
+                {"actor": "agente", "action": "sincronizza, elenca e controlla l'archivio"},
             ],
-            "secret_policy": "no secrets required",
+            "secret_policy": "non servono segreti",
         }
     if provider == "zimbra":
         return {
             "provider": "zimbra",
             "adapter_status": "onboarding_ready_adapter_not_bundled",
             "steps": [
-                {"actor": "agent", "action": "collect host, account name and public email address only"},
-                {"actor": "human", "action": "sign in to webmail and complete 2FA in a browser"},
-                {"actor": "human", "action": "export a HAR after login without pasting it into chat"},
-                {"actor": "cli", "action": "extract only the required session cookies into an owner-only local file"},
-                {"actor": "agent", "action": "check setup status without reading or displaying secret values"},
-                {"actor": "human", "action": "install or enable a compatible Zimbra provider adapter"},
+                {"actor": "agente", "action": "raccoglie solo host, nome account e indirizzo pubblico"},
+                {"actor": "persona", "action": "esegue login e 2FA nel browser"},
+                {"actor": "persona", "action": "esporta il file HAR senza inserirlo in chat"},
+                {"actor": "cli", "action": "estrae solo i cookie richiesti in un file locale riservato"},
+                {"actor": "agente", "action": "controlla lo stato senza leggere valori segreti"},
+                {"actor": "persona", "action": "installa un adapter Zimbra compatibile"},
             ],
-            "secret_policy": "HAR, password, OTP and cookie values remain local and never enter MCP or prompts",
+            "secret_policy": "HAR, password, OTP e cookie restano locali e non entrano in MCP o nei prompt",
         }
     return {
         "provider": provider,
         "adapter_status": "unknown",
         "steps": [
-            {"actor": "agent", "action": "identify an adapter and its authentication contract"},
-            {"actor": "human", "action": "review requested permissions before configuring secrets"},
+            {"actor": "agente", "action": "identifica un adapter e il contratto di autenticazione"},
+            {"actor": "persona", "action": "verifica i permessi prima di configurare segreti"},
         ],
-        "secret_policy": "do not paste credentials, tokens or mailbox exports into chat",
+        "secret_policy": "non inserire in chat credenziali, token o esportazioni della casella",
     }
 
 

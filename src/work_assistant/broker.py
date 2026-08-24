@@ -5,9 +5,11 @@ import hashlib
 from multiprocessing.connection import Client, Connection, Listener
 import os
 from pathlib import Path
+import queue
 import secrets
 import tempfile
 import threading
+import time
 from typing import Any
 
 from work_assistant.config import AppConfig, load_config
@@ -18,6 +20,45 @@ from work_assistant.service import WorkAssistant
 
 class BrokerError(RuntimeError):
     pass
+
+
+AUTH_ACCEPT_WORKERS = 4
+HANDLER_WORKERS = 16
+REQUEST_IDLE_TIMEOUT = 1.0
+CLIENT_CONNECT_SLOTS = 8
+_CLIENT_CONNECT_SEMAPHORE = threading.BoundedSemaphore(CLIENT_CONNECT_SLOTS)
+
+
+def _project_root(path: Path) -> Path | None:
+    for candidate in (path, *path.parents):
+        if any((candidate / marker).exists() for marker in (".git", "AGENTS.md", "pyproject.toml")):
+            return candidate
+    return None
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def validate_broker_storage(config: AppConfig) -> None:
+    """Fail closed when protected broker data sits inside an agent workspace."""
+    if config.privacy.mode == "off" or config.unsafe_allow_workspace_data:
+        return
+    workspace = _project_root(config.path.parent)
+    if workspace is None:
+        return
+    protected_paths = [config.data_dir]
+    if config.privacy.entities_path is not None:
+        protected_paths.append(config.privacy.entities_path)
+    if any(_is_within(path.resolve(), workspace.resolve()) for path in protected_paths):
+        raise BrokerError(
+            "protected broker data must be outside the agent workspace; "
+            "set unsafe_allow_workspace_data=true only for an explicit unsafe demo"
+        )
 
 
 class SafeBroker:
@@ -55,7 +96,8 @@ class SafeBroker:
             rows = self.app.archive.list_messages(args.get("account"), int(args.get("limit", 20)))
             return [self.privacy.protect_summary(row) for row in rows]
         if operation == "get":
-            message = self.app.archive.get_message(str(args["account"]), str(args["message_id"]))
+            message_id = self.privacy.restore_reference(str(args["message_id"]))
+            message = self.app.archive.get_message(str(args["account"]), message_id)
             return self.privacy.protect_message(message) if message else {"error": "message_not_found"}
         if operation == "draft_candidate":
             recipients = self.privacy.restore_addresses([str(value) for value in args.get("to", [])])
@@ -66,7 +108,9 @@ class SafeBroker:
                 recipients,
                 subject,
                 body,
-                str(args["in_reply_to"]) if args.get("in_reply_to") else None,
+                self.privacy.restore_reference(str(args["in_reply_to"]))
+                if args.get("in_reply_to")
+                else None,
             )
             return {"draft_candidate_id": draft_id, "status": "local_candidate", "sent": False}
         if operation == "local_artifact":
@@ -104,6 +148,8 @@ MAX_RESPONSE_BYTES = 1024 * 1024
 
 def _handle_connection(connection: Connection, broker: SafeBroker) -> None:
     try:
+        if not connection.poll(REQUEST_IDLE_TIMEOUT):
+            return
         raw = connection.recv_bytes(MAX_REQUEST_BYTES)
         try:
             request = json.loads(raw.decode("utf-8"))
@@ -121,6 +167,42 @@ def _handle_connection(connection: Connection, broker: SafeBroker) -> None:
         connection.send_bytes(encoded)
     finally:
         connection.close()
+
+
+def _accept_connections(
+    listener: Listener,
+    accepted: queue.Queue[Connection],
+    stop: threading.Event,
+) -> None:
+    while not stop.is_set():
+        try:
+            connection = listener.accept()
+        except (OSError, EOFError):
+            return
+        while not stop.is_set():
+            try:
+                accepted.put(connection, timeout=0.2)
+                break
+            except queue.Full:
+                continue
+        else:
+            connection.close()
+
+
+def _handle_connections(
+    accepted: queue.Queue[Connection],
+    broker: SafeBroker,
+    stop: threading.Event,
+) -> None:
+    while not stop.is_set():
+        try:
+            connection = accepted.get(timeout=0.2)
+        except queue.Empty:
+            continue
+        try:
+            _handle_connection(connection, broker)
+        finally:
+            accepted.task_done()
 
 
 def default_broker_address(config: AppConfig) -> str:
@@ -155,6 +237,7 @@ def run_broker(
     auth_file: str | None = None,
 ) -> None:
     config = load_config(config_path)
+    validate_broker_storage(config)
     endpoint = address or default_broker_address(config)
     auth_path = Path(auth_file).expanduser().resolve() if auth_file else default_auth_path(config)
     auth_key = _load_or_create_auth_key(auth_path)
@@ -173,16 +256,37 @@ def run_broker(
         else:
             raise BrokerError("a broker is already running on this endpoint")
     family = "AF_PIPE" if os.name == "nt" else "AF_UNIX"
-    listener = Listener(endpoint, family=family, authkey=auth_key)
+    listener = Listener(endpoint, family=family, backlog=HANDLER_WORKERS, authkey=auth_key)
     if socket_path is not None:
         os.chmod(socket_path, 0o600)
     broker = SafeBroker(config)
+    stop = threading.Event()
+    accepted: queue.Queue[Connection] = queue.Queue(maxsize=HANDLER_WORKERS)
+    workers = [
+        threading.Thread(
+            target=_accept_connections,
+            args=(listener, accepted, stop),
+            daemon=True,
+            name=f"broker-accept-{index}",
+        )
+        for index in range(AUTH_ACCEPT_WORKERS)
+    ]
+    workers.extend(
+        threading.Thread(
+            target=_handle_connections,
+            args=(accepted, broker, stop),
+            daemon=True,
+            name=f"broker-handler-{index}",
+        )
+        for index in range(HANDLER_WORKERS)
+    )
+    for worker in workers:
+        worker.start()
     try:
         while True:
-            connection = listener.accept()
-            thread = threading.Thread(target=_handle_connection, args=(connection, broker), daemon=True)
-            thread.start()
+            stop.wait(60)
     finally:
+        stop.set()
         listener.close()
         if socket_path is not None and socket_path.exists():
             socket_path.unlink()
@@ -198,16 +302,48 @@ class BrokerClient:
         payload = json.dumps({"operation": operation, "arguments": arguments}).encode()
         if len(payload) > MAX_REQUEST_BYTES:
             raise BrokerError("broker request exceeds the size limit")
+        started = time.monotonic()
+        if not _CLIENT_CONNECT_SEMAPHORE.acquire(timeout=self.timeout):
+            raise BrokerError("privacy broker connection capacity is exhausted")
+        result: queue.Queue[Connection | BaseException] = queue.Queue(maxsize=1)
+        expired = threading.Event()
+
+        def connect() -> None:
+            try:
+                family = "AF_PIPE" if self.address.startswith("\\\\.\\pipe\\") else "AF_UNIX"
+                connection = Client(
+                    self.address,
+                    family=family,
+                    authkey=self.auth_file.read_bytes().strip(),
+                )
+                if expired.is_set():
+                    connection.close()
+                else:
+                    result.put(connection)
+            except BaseException as exc:
+                if not expired.is_set():
+                    result.put(exc)
+            finally:
+                _CLIENT_CONNECT_SEMAPHORE.release()
+
+        threading.Thread(target=connect, daemon=True, name="broker-client-connect").start()
         try:
-            family = "AF_PIPE" if self.address.startswith("\\\\.\\pipe\\") else "AF_UNIX"
-            connection = Client(
-                self.address,
-                family=family,
-                authkey=self.auth_file.read_bytes().strip(),
-            )
+            connected = result.get(timeout=self.timeout)
+        except queue.Empty as exc:
+            expired.set()
+            raise BrokerError("privacy broker connection timed out") from exc
+        if isinstance(connected, BaseException):
+            if isinstance(connected, (OSError, EOFError)):
+                raise BrokerError("privacy broker is unavailable; no raw fallback was used") from connected
+            raise BrokerError("privacy broker authentication failed") from connected
+        connection = connected
+        try:
+            remaining = self.timeout - (time.monotonic() - started)
+            if remaining <= 0:
+                raise BrokerError("privacy broker request timed out")
             try:
                 connection.send_bytes(payload)
-                if not connection.poll(self.timeout):
+                if not connection.poll(remaining):
                     raise BrokerError("privacy broker response timed out")
                 raw = connection.recv_bytes(MAX_RESPONSE_BYTES)
             finally:

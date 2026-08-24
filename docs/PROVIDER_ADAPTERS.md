@@ -1,10 +1,10 @@
-# Provider adapters
+# Adapter dei provider
 
-A provider adapter translates one mail service into the stable Work Assistant message model.
+Un adapter traduce un servizio email nel modello stabile di Work Assistant.
 
-## Required contract
+## Contratto richiesto
 
-Implement `MailProvider`:
+Implementa `MailProvider`:
 
 ```python
 class MailProvider(Protocol):
@@ -19,28 +19,28 @@ class MailProvider(Protocol):
     ) -> str: ...
 ```
 
-An adapter may intentionally reject `save_draft`. The demo adapter does.
+Un adapter può rifiutare `save_draft`. L'adapter dimostrativo lo rifiuta.
 
-## Adapter responsibilities
+## Responsabilità dell'adapter
 
-- authentication and token refresh;
-- provider pagination and throttling;
-- conversion of provider IDs and timestamps;
-- attachment acquisition and hash calculation;
-- exact documentation of read and write capabilities;
-- verification of any provider-side mutation.
+- autenticazione e rinnovo dei token;
+- paginazione e limiti del provider;
+- conversione di identificativi e orari;
+- acquisizione degli allegati e calcolo degli hash;
+- descrizione esatta delle capacità di lettura e scrittura;
+- verifica di ogni modifica applicata sul provider.
 
-## Core responsibilities
+## Responsabilità del core
 
-- multi-account routing;
-- normalized message storage;
-- payload integrity checks;
-- derived knowledge views;
-- local draft candidates;
-- MCP and CLI contracts.
+- instradamento tra più account;
+- normalizzazione e archivio locale;
+- controlli di integrità;
+- vista di conoscenza derivata;
+- candidati di risposta locali;
+- contratti MCP e CLI.
 
-## Registration
+## Registrazione
 
-Add the adapter package and register its provider name in `work_assistant.service.provider_for`. Keep adapter-specific configuration under the account table in `work-assistant.toml`.
+Aggiungi il pacchetto dell'adapter e registra il nome in `work_assistant.service.provider_for`. Mantieni le opzioni specifiche sotto la tabella dell'account in `work-assistant.toml`.
 
-Never use real messages as fixtures.
+Non usare messaggi reali come fixture.
