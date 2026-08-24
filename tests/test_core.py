@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import shutil
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_packaged_configuration_matches_repository_example() -> None:
     packaged = files("work_assistant").joinpath("templates/work-assistant.example.toml")
-    assert packaged.read_text(encoding="utf-8") == (ROOT / "work-assistant.example.toml").read_text()
+    assert packaged.read_bytes() == (ROOT / "work-assistant.example.toml").read_bytes()
 
 
 def test_multi_account_sync_and_archive(tmp_path: Path) -> None:
@@ -96,4 +97,4 @@ def test_init_writes_external_platform_data_directory(tmp_path: Path) -> None:
     created = load_config(config_path)
     assert created.data_dir != tmp_path / "workspace"
     assert not created.data_dir.is_relative_to(ROOT)
-    assert str(created.data_dir) in result.stdout
+    assert Path(json.loads(result.stdout)["data_dir"]) == created.data_dir

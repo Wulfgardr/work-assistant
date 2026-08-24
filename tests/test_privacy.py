@@ -199,6 +199,12 @@ def test_entity_registry_fails_closed_when_group_readable(tmp_path: Path) -> Non
 def test_entity_registry_rejects_broad_windows_acl(tmp_path: Path) -> None:
     entities = tmp_path / "entities.json"
     entities.write_text('{"PERSON": ["Alex Example"]}')
+    subprocess.run(
+        ["icacls", str(entities), "/grant", "*S-1-1-0:(R)"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     config = PrivacyConfig("all", "pseudonymize", (), entities)
     with pytest.raises(PrivacyError, match="ACL"):
         Pseudonymizer(config, tmp_path / "data")

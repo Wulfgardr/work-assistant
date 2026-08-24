@@ -96,11 +96,12 @@ def _case(
                 raise RuntimeError(f"benchmark broker failed to start for {label}")
             time.sleep(0.05)
     client.call("sync", account="personal")
+    message_ref = client.call("list", account="personal", limit=1)[0]["message_ref"]
     samples: list[float] = []
     try:
         for _ in range(iterations):
             started = time.perf_counter_ns()
-            client.call("get", account="personal", message_id="m-1")
+            client.call("get", account="personal", message_id=message_ref)
             samples.append((time.perf_counter_ns() - started) / 1_000_000)
     finally:
         process.terminate()
