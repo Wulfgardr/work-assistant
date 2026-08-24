@@ -1,0 +1,7 @@
+flowchart LR
+  Provider[Mail provider] --> Core[Work Assistant core]
+  Core --> Archive[(Clear local archive)]
+  Archive --> MCP[MCP process]
+  MCP --> Agent[Cloud-backed agent]
+  Agent --> MCP
+  MCP --> Archive

@@ -1,0 +1,5 @@
+flowchart LR
+  Provider[Mail provider] --> Core[Trusted local core]
+  Core --> Archive[(Clear local archive)]
+  Archive --> Model[Local model runtime]
+  Model --> Core

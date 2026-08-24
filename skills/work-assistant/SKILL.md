@@ -8,6 +8,7 @@ description: Operate a configured Work Assistant instance through MCP or CLI for
 Use the configured Work Assistant tools as the operational surface. The skill provides decision rules; it does not replace the MCP server or CLI.
 
 For initial setup or a new account, read [references/onboarding.md](references/onboarding.md).
+Before exposing mail content to an agent, read [references/privacy.md](references/privacy.md).
 
 ## Select the account
 

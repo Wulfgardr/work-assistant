@@ -2,7 +2,7 @@ interface:
   display_name: "Work Assistant"
   short_description: "Operate local email with review-first controls"
   brand_color: "#315C49"
-  default_prompt: "Use $work-assistant to inspect my configured mailbox and prepare a local draft candidate without sending."
+  default_prompt: "Use $work-assistant, check the active privacy mode, inspect my configured mailbox, and prepare a local draft candidate without sending."
 
 policy:
   allow_implicit_invocation: true

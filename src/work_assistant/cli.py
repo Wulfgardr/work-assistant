@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import shutil
 
+from work_assistant.benchmark import benchmark_privacy
+from work_assistant.broker import default_auth_path, default_broker_address, run_broker
 from work_assistant.config import load_config
 from work_assistant.onboarding import import_zimbra_har, onboarding_plan, onboarding_status
 from work_assistant.service import WorkAssistant
@@ -28,6 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     show = sub.add_parser("show", help="show one locally archived message")
     show.add_argument("--account", required=True)
     show.add_argument("--id", required=True)
+    artifact = sub.add_parser("artifact-show", help="show one clear local artifact to the operator")
+    artifact.add_argument("--id", type=int, required=True)
     draft = sub.add_parser("draft-candidate", help="store a local draft candidate; never sends")
     draft.add_argument("--account", required=True)
     draft.add_argument("--to", action="append", required=True)
@@ -42,7 +46,17 @@ def build_parser() -> argparse.ArgumentParser:
     har = sub.add_parser("import-zimbra-har", help="extract session material locally from a HAR")
     har.add_argument("--account", required=True)
     har.add_argument("--har", required=True)
-    sub.add_parser("mcp", help="run the MCP server over stdio")
+    benchmark = sub.add_parser("benchmark-privacy", help="measure broker privacy overhead with synthetic mail")
+    benchmark.add_argument("--iterations", type=int, default=200)
+    benchmark.add_argument("--body-kib", type=int, default=16)
+    benchmark.add_argument("--budget-ms", type=float, default=25)
+    broker = sub.add_parser("broker", help="run the trusted local privacy broker")
+    broker.add_argument("--address")
+    broker.add_argument("--auth-file")
+    mcp = sub.add_parser("mcp", help="run the pseudonymized MCP gateway over stdio")
+    mcp.add_argument("--broker-address", required=True)
+    mcp.add_argument("--broker-auth-file", required=True)
+    sub.add_parser("broker-info", help="show the safe gateway endpoint and auth-file paths")
     return parser
 
 
@@ -59,10 +73,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "mcp":
         from work_assistant.mcp_server import run
 
-        run(args.config)
+        run(args.broker_address, args.broker_auth_file)
+        return 0
+    if args.command == "broker":
+        run_broker(args.config, args.address, args.auth_file)
         return 0
     if args.command == "onboarding-plan":
         _emit(onboarding_plan(args.provider))
+        return 0
+    if args.command == "benchmark-privacy":
+        _emit(benchmark_privacy(args.iterations, args.body_kib, args.budget_ms))
         return 0
     app = WorkAssistant(load_config(args.config))
     if args.command == "sync":
@@ -74,6 +94,11 @@ def main(argv: list[str] | None = None) -> int:
         if message is None:
             raise SystemExit("message not found")
         _emit(message)
+    elif args.command == "artifact-show":
+        artifact = app.archive.get_local_artifact(args.id)
+        if artifact is None:
+            raise SystemExit("artifact not found")
+        _emit(artifact)
     elif args.command == "draft-candidate":
         body = Path(args.body_file).read_text(encoding="utf-8")
         draft_id = app.archive.create_draft_candidate(
@@ -92,6 +117,14 @@ def main(argv: list[str] | None = None) -> int:
         _emit(onboarding_status(app.config))
     elif args.command == "import-zimbra-har":
         _emit(import_zimbra_har(app.config, args.account, args.har))
+    elif args.command == "broker-info":
+        _emit(
+            {
+                "broker_address": default_broker_address(app.config),
+                "broker_auth_file": str(default_auth_path(app.config)),
+                "contains_mailbox_configuration": False,
+            }
+        )
     return 0
 
 

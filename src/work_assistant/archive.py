@@ -60,6 +60,17 @@ class LocalArchive:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS local_artifacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
 
     def upsert(self, messages: list[Message]) -> int:
         changed = 0
@@ -148,6 +159,24 @@ class LocalArchive:
                 for (account, address), count in sorted(contacts.items(), key=lambda item: (-item[1], item[0]))
             ],
         }
+
+    def create_local_artifact(self, kind: str, title: str, body: str) -> int:
+        if kind not in {"analysis", "summary", "contact_note"}:
+            raise ValueError("unsupported local artifact kind")
+        with self.connect() as connection:
+            cursor = connection.execute(
+                "INSERT INTO local_artifacts (kind, title, body) VALUES (?, ?, ?)",
+                (kind, title, body),
+            )
+            return int(cursor.lastrowid)
+
+    def get_local_artifact(self, artifact_id: int) -> dict[str, object] | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT id, kind, title, body, created_at FROM local_artifacts WHERE id = ?",
+                (artifact_id,),
+            ).fetchone()
+        return dict(row) if row else None
 
     def verify(self) -> dict[str, object]:
         mismatches = 0

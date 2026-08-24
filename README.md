@@ -2,7 +2,7 @@
 
 # Work Assistant
 
-**Your email stays local. Your agent gets useful tools. You stay in control.**
+**Your archive stays local. Agent exposure is explicit. You stay in control.**
 
 Provider-neutral email operations for Codex, Claude and the command line.
 
@@ -21,23 +21,28 @@ It is not an autonomous sender. The included public core never sends email.
 - **Multiple accounts** — each mailbox has its own name, address and provider adapter.
 - **Local archive** — normalized messages are stored in SQLite with payload hashes.
 - **Knowledge view** — contacts and interactions are rebuilt from the archive, not hidden in a model.
-- **Agent-ready MCP server** — use the same tools from Codex, Claude or another MCP client.
+- **Privacy broker + MCP gateway** — clear data stays in the trusted local broker; the agent receives policy-filtered payloads.
+- **Reversible pseudonyms** — stable workspace-local aliases are restored only while creating local artifacts.
 - **Plain CLI** — inspect and operate the same core without an agent.
 - **Review-first drafts** — the public core stores local draft candidates and reports `sent: false`.
+- **Local restored artifacts** — analyses, summaries and contact notes return through the broker and are de-pseudonymized only in local storage.
 
 ```text
-Codex / Claude / CLI
-         │
-      MCP or commands
-         │
-   Work Assistant core
-      ├── local archive
+Codex / Claude
+      │ pseudonymized MCP
+      ▼
+   MCP gateway
+      │ authenticated local IPC
+      ▼
+   Privacy broker
+      ├── clear local archive
+      ├── encrypted alias vault
       ├── knowledge view
-      └── draft candidates
+      └── local draft candidates
          │
    provider adapters
       ├── demo JSONL ✓
-      ├── Zimbra      planned extraction
+      ├── Zimbra      external adapter
       ├── Microsoft   community adapter
       └── Gmail/IMAP  community adapter
 ```
@@ -50,9 +55,26 @@ Requirements: Python 3.11 or later.
 git clone https://github.com/your-account/work-assistant.git
 cd work-assistant
 python3 -m venv .venv
+```
+
+Activate the environment:
+
+```bash
+# macOS or Linux
 source .venv/bin/activate
-python -m pip install -e .
 cp work-assistant.example.toml work-assistant.toml
+```
+
+```powershell
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+Copy-Item work-assistant.example.toml work-assistant.toml
+```
+
+Then install on any platform:
+
+```bash
+python -m pip install .
 ```
 
 Load the two synthetic mailboxes:
@@ -66,6 +88,8 @@ work-assistant --config work-assistant.toml verify
 ```
 
 All runtime data is written to `./workspace/`, which Git ignores.
+
+The commands above are the local operator surface. Do not expose their raw output to a cloud-backed terminal agent. Agent use goes through the privacy broker and MCP gateway below.
 
 ## Adaptive onboarding
 
@@ -100,18 +124,34 @@ The agent can inspect onboarding status through MCP, but HAR files, passwords, O
 Install the MCP dependency:
 
 ```bash
-python -m pip install -e '.[mcp]'
+python -m pip install '.[mcp]'
 ```
+
+Start the trusted broker in a local terminal or service before starting the agent:
+
+```bash
+work-assistant --config work-assistant.toml broker
+```
+
+The broker uses an owner-only Unix socket on macOS/Linux and an authenticated named pipe on Windows. If it is unavailable, the MCP gateway fails closed and does not read the archive directly.
 
 ### Codex
 
 Register the local MCP server from the repository root:
 
 ```bash
+work-assistant --config work-assistant.toml broker-info
+
 codex mcp add work-assistant -- \
   "$PWD/.venv/bin/work-assistant" \
-  --config "$PWD/work-assistant.toml" mcp
+  mcp \
+  --broker-address '<value from broker-info>' \
+  --broker-auth-file '<value from broker-info>'
 ```
+
+Do not pass `work-assistant.toml` to the gateway. Only the broker loads mailbox configuration. The gateway receives the safe IPC endpoint and its authentication file.
+
+On Windows, replace `.venv/bin/work-assistant` with `.venv\Scripts\work-assistant.exe` in client configuration.
 
 Then ask Codex:
 
@@ -129,9 +169,11 @@ Point an MCP configuration at the same executable:
     "work-assistant": {
       "command": "/absolute/path/work-assistant/.venv/bin/work-assistant",
       "args": [
-        "--config",
-        "/absolute/path/work-assistant/work-assistant.toml",
-        "mcp"
+        "mcp",
+        "--broker-address",
+        "<value from broker-info>",
+        "--broker-auth-file",
+        "<value from broker-info>"
       ]
     }
   }
@@ -143,21 +185,21 @@ For Claude Code, the equivalent registration is:
 ```bash
 claude mcp add work-assistant -- \
   "$PWD/.venv/bin/work-assistant" \
-  --config "$PWD/work-assistant.toml" mcp
+  mcp \
+  --broker-address '<value from broker-info>' \
+  --broker-auth-file '<value from broker-info>'
 ```
 
 ### Intelligent use from a terminal
 
-The `work-assistant` CLI is deterministic; it does not contain a model. It becomes an intelligent surface when Codex CLI, Claude Code or another terminal agent calls it or connects through MCP.
-
-Humans and agents therefore use the same local core:
+The `work-assistant` CLI is deterministic; it does not contain a model. A terminal agent must connect through MCP so the broker can apply privacy policy. Raw CLI commands are for a trusted local human operator:
 
 ```bash
 work-assistant --config work-assistant.toml list --account personal --limit 10
 work-assistant --config work-assistant.toml show --account personal --id p-001
 ```
 
-To store a proposed reply without writing to a provider:
+To store a proposed reply manually without writing to a provider:
 
 ```bash
 printf 'Thanks. I will review the note by Friday.\n' > reply.txt
@@ -177,6 +219,11 @@ Each table below `[accounts]` is an independent mailbox:
 schema_version = 1
 data_dir = "./workspace"
 
+[privacy]
+mode = "all"
+default_action = "pseudonymize"
+entities_path = "./private/privacy-entities.json"
+
 [accounts.personal]
 provider = "demo"
 source = "./examples/demo-mailbox.jsonl"
@@ -184,6 +231,71 @@ address = "alex@example.test"
 ```
 
 Keep credentials, exports and operational data outside Git. Use environment variables or an adapter-specific secret store for real providers.
+
+### Privacy modes
+
+- `off` — no transformation. Agent-visible content may reach the model provider.
+- `all` — pseudonymize every sender before content crosses the broker boundary.
+- `selective` — use ordered sender rules; the first match wins.
+
+Use explicit actions instead of ambiguous opt-in/opt-out labels:
+
+```toml
+[privacy]
+mode = "selective"
+default_action = "pseudonymize"
+entities_path = "./private/privacy-entities.json"
+
+[[privacy.sender_rules]]
+pattern = "newsletter@example.test"
+action = "allow_raw"
+
+[[privacy.sender_rules]]
+pattern = "*@sensitive.example"
+action = "pseudonymize"
+```
+
+The optional entity registry protects names or organizations wherever they occur, including messages from an `allow_raw` sender:
+
+```json
+{
+  "PERSON": ["Alex Example"],
+  "ORG": ["Example Clinic"]
+}
+```
+
+This is reversible pseudonymization, not guaranteed anonymity. Rare facts, unmatched prose and writing style can still identify a person.
+
+Model-generated analyses can return through `mail_local_artifact`. The broker accepts only `analysis`, `summary` or `contact_note`, restores known aliases, stores the clear result locally and returns only an artifact ID. A trusted operator can inspect it with `work-assistant artifact-show --id ID`.
+
+### Machine-specific privacy benchmark
+
+Run a synthetic benchmark before choosing a mode:
+
+```bash
+work-assistant benchmark-privacy \
+  --iterations 200 \
+  --body-kib 16 \
+  --budget-ms 25
+```
+
+It compares broker round trips for `off`, `all`, selective `allow_raw` and selective pseudonymization. The recommendation uses the overhead budget you provide. It excludes provider, model and internet latency and never reads real mail. Performance does not make `allow_raw` safe; it only helps you understand the local cost.
+
+One measured example is available in [`docs/benchmarks/privacy-broker-macos-2026-08-24.md`](docs/benchmarks/privacy-broker-macos-2026-08-24.md). Always prefer a fresh run on the target machine.
+
+## Operating systems
+
+The core, policy, vault, benchmark and broker use Python APIs available on Windows, Linux and macOS:
+
+| Platform | Local broker transport | Isolation direction |
+| --- | --- | --- |
+| Windows | Authenticated named pipe | Broker service plus agent sandbox/container |
+| Linux | Owner-only Unix socket | Service sandbox or container with isolated data volume |
+| macOS | Owner-only Unix socket | Sandboxed service or container with isolated data volume |
+
+The broker data directory must remain outside the agent-readable workspace. The code is designed for all three platforms; the GitHub CI matrix is the publication gate for claiming verified cross-platform behavior.
+
+See [`docs/PLATFORMS.md`](docs/PLATFORMS.md) for the distinction between designed and currently verified support.
 
 ## Add a provider
 
@@ -195,6 +307,9 @@ An adapter owns provider-specific authentication, pagination and identifiers. Th
 
 - The demo adapter is read-only.
 - MCP runs over local `stdio`; the server opens no network port.
+- Broker IPC uses Unix sockets or Windows named pipes, never a listening TCP port.
+- Alias values are encrypted with AES-GCM; stable alias identifiers use keyed HMAC.
+- `off`, `all` and ordered `selective` rules make model exposure explicit.
 - `mail_draft_candidate` writes only to the local archive.
 - Onboarding MCP tools never accept or return secret values.
 - The public core exposes no send tool.
@@ -205,14 +320,15 @@ Before using real mail, read [`SECURITY.md`](SECURITY.md). Provider adapters mus
 
 ## Status
 
-This is an alpha foundation extracted from a working local-first system. The provider-neutral core, demo adapter, multi-account configuration, SQLite archive, CLI and MCP surface are implemented. Production provider adapters and attachment blob storage remain future work.
+This is an alpha foundation extracted from a working local-first system. The provider-neutral core, demo adapter, multi-account configuration, SQLite archive, privacy broker, encrypted alias vault, CLI and MCP gateway are implemented. Production provider adapters and attachment-content pseudonymization remain future work.
 
 ## Development
 
 ```bash
-python -m pip install -e '.[dev,mcp]'
+python -m pip install '.[dev,mcp]'
 pytest
 python scripts/privacy_check.py
+work-assistant benchmark-privacy --iterations 50
 ```
 
 MIT licensed. Contributions should use synthetic fixtures only.

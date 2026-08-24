@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import shutil
 
 from work_assistant.archive import LocalArchive
 from work_assistant.config import load_config
@@ -11,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_multi_account_sync_and_archive(tmp_path: Path) -> None:
     config_text = (ROOT / "work-assistant.example.toml").read_text()
-    config_text = config_text.replace("./workspace", str(tmp_path / "workspace"))
+    config_text = config_text.replace("./workspace", (tmp_path / "workspace").as_posix())
     config_path = tmp_path / "work-assistant.toml"
     config_path.write_text(config_text)
     examples = tmp_path / "examples"
-    examples.symlink_to(ROOT / "examples", target_is_directory=True)
+    shutil.copytree(ROOT / "examples", examples)
     app = WorkAssistant(load_config(config_path))
     assert app.sync("personal") == {"account": "personal", "observed": 2, "changed": 2}
     assert app.sync("team") == {"account": "team", "observed": 1, "changed": 1}
@@ -42,7 +44,7 @@ def test_zimbra_onboarding_keeps_secret_values_local(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     config_path.write_text(
         "schema_version = 1\n"
-        f'data_dir = "{workspace}"\n'
+        f'data_dir = "{workspace.as_posix()}"\n'
         "[accounts.work]\n"
         'provider = "zimbra"\n'
         'address = "alex@example.test"\n'
@@ -58,6 +60,7 @@ def test_zimbra_onboarding_keeps_secret_values_local(tmp_path: Path) -> None:
     result = import_zimbra_har(config, "work", har_path)
     assert result["secret_values_exposed"] is False
     destination = Path(result["path"])
-    assert destination.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert destination.stat().st_mode & 0o777 == 0o600
     assert "synthetic-zm-cookie-value" in destination.read_text()
     assert onboarding_plan("zimbra")["adapter_status"] == "onboarding_ready_adapter_not_bundled"

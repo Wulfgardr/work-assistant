@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "work-assistant"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first, provider-neutral email operations for people and AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -16,11 +16,11 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
 ]
-dependencies = []
+dependencies = ["cryptography>=45,<51"]
 
 [project.optional-dependencies]
 mcp = ["mcp[cli]>=1.26,<2"]
-dev = ["pytest>=8,<9", "pyyaml>=6,<7"]
+dev = ["build>=1.2,<2", "pytest>=8,<9", "pyyaml>=6,<7"]
 
 [project.scripts]
 work-assistant = "work_assistant.cli:main"

@@ -1,0 +1,106 @@
+{
+  "documentType": "codex-security.hardening-analysis",
+  "schemaVersion": "1.0",
+  "analysisId": "work_assistant_agent_privacy_20260824",
+  "sourceEvidence": {
+    "kind": "source_collection",
+    "label": "Work Assistant agent and archive boundaries",
+    "collectionSha256": "adf157f16efff48e1d34eba864fcec9fac951f8fd217ebc0c17f6b3a2dc35a76",
+    "artifactCount": 5,
+    "targetRevision": "ffdd49983783506b2f4fc5b7310421b7969ecab7",
+    "sourceDrift": "present"
+  },
+  "assessment": {
+    "outcome": "opportunities_identified",
+    "summary": "A broker boundary can prevent routine cloud-model exposure while preserving reversible local drafts."
+  },
+  "constraints": {
+    "profile": "balanced",
+    "changeHorizons": ["incremental", "foundational"],
+    "nonNegotiables": [
+      "The reversal map remains local.",
+      "Unknown aliases fail closed during restoration.",
+      "Privacy mode and sender action are visible in every agent payload."
+    ],
+    "assumptions": ["No measured latency or memory budget was supplied."]
+  },
+  "opportunities": [
+    {
+      "opportunityId": "agent-privacy-boundary",
+      "title": "Separate clear mail from the agent boundary",
+      "summary": "Move pseudonymization and restoration into an isolatable local broker.",
+      "diagnosis": "The current MCP process can read and return the same clear archive that it is meant to protect.",
+      "evidence": [
+        {"claimType": "observed", "sourceKind": "source", "evidenceId": "E001", "path": "src/work_assistant/mcp_server.py", "claim": "Agent tools return clear addresses, subjects and message bodies."},
+        {"claimType": "observed", "sourceKind": "source", "evidenceId": "E002", "path": "src/work_assistant/archive.py", "claim": "The archive stores normalized clear payloads for local operation."},
+        {"claimType": "inferred", "sourceKind": "source", "evidenceId": "E005", "path": "SECURITY.md", "claim": "An inline mapper cannot protect against an agent with direct filesystem access to the archive and key."}
+      ],
+      "desiredInvariants": [
+        "The agent-facing process cannot read the clear archive or alias key.",
+        "Every protected entity has a stable workspace-local alias and authenticated encrypted mapping.",
+        "Restoration accepts only aliases issued by the same vault.",
+        "Selective sender rules are deterministic and disclosed in output metadata."
+      ],
+      "proposalPath": "proposals/agent-privacy-boundary.md",
+      "options": [
+        {
+          "optionId": "inline-filter",
+          "title": "Inline pseudonymization filter",
+          "kind": "incremental",
+          "summary": "Filter responses inside the existing MCP process.",
+          "diagramPaths": {"before": "diagrams/agent-privacy-boundary-before.mmd", "after": "diagrams/agent-privacy-boundary-inline-filter-after.mmd"},
+          "evidenceCoverage": [{"evidenceId": "E001", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Routine MCP responses are filtered, but filesystem authority remains."}],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "medium", "basis": "source-derived", "assessment": "Reduces accidental payload exposure but is bypassable by direct file access.", "validationPlan": "Test MCP payloads and attempt direct archive reads from the agent context."},
+            {"dimension": "performance", "direction": "regresses", "confidence": "low", "basis": "hypothetical", "assessment": "Adds local matching and vault lookups.", "validationPlan": "Benchmark synthetic messages by size and entity count."},
+            {"dimension": "memory", "direction": "regresses", "confidence": "low", "basis": "hypothetical", "assessment": "Keeps a bounded alias index in memory.", "validationPlan": "Measure peak RSS with large synthetic contact sets."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "medium", "basis": "source-derived", "assessment": "Unknown aliases can fail before local draft creation.", "validationPlan": "Fuzz malformed and foreign aliases."},
+            {"dimension": "operability", "direction": "neutral", "confidence": "medium", "basis": "source-derived", "assessment": "No additional process is required.", "validationPlan": "Exercise setup and key rotation."},
+            {"dimension": "migration", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Smallest code and deployment change.", "validationPlan": "Run existing MCP contract tests."}
+          ],
+          "residualRisks": ["Agent shell access can bypass the filter."],
+          "implementationReadiness": {"affectedComponents": ["src/work_assistant/mcp_server.py"], "workPackages": ["Add policy, vault and response filtering."], "acceptanceCriteria": ["Protected entities do not appear in MCP results."], "migrationNotes": [], "rollback": "Set privacy mode to off and revert the filter."}
+        },
+        {
+          "optionId": "isolated-broker",
+          "title": "Isolated local broker",
+          "kind": "isolation",
+          "summary": "A trusted broker owns clear data and exposes only policy-filtered operations to the MCP gateway.",
+          "diagramPaths": {"before": "diagrams/agent-privacy-boundary-before.mmd", "after": "diagrams/agent-privacy-boundary-isolated-broker-after.mmd"},
+          "evidenceCoverage": [{"evidenceId": "E001", "effect": "addresses", "tacticalFixRequired": true, "rationale": "The raw MCP path is replaced by a safe broker protocol."}, {"evidenceId": "E002", "effect": "mitigates", "tacticalFixRequired": true, "rationale": "The archive remains clear locally but leaves the agent-readable workspace."}],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Removes clear archive and mapping authority from the agent process when deployed with OS isolation.", "validationPlan": "Attempt raw file and broker API access from the agent sandbox."},
+            {"dimension": "performance", "direction": "regresses", "confidence": "low", "basis": "hypothetical", "assessment": "Adds local IPC plus matching and authenticated encryption.", "validationPlan": "Benchmark direct versus broker list/get/draft paths."},
+            {"dimension": "memory", "direction": "regresses", "confidence": "low", "basis": "hypothetical", "assessment": "Runs one additional small process and alias cache.", "validationPlan": "Measure both process RSS values."},
+            {"dimension": "reliability", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Broker availability becomes a prerequisite, but fail-closed behavior is clearer.", "validationPlan": "Test restart, stale endpoints and interrupted vault writes."},
+            {"dimension": "operability", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Requires process supervision and data-directory isolation.", "validationPlan": "Test documented Windows, macOS, Linux and container setup paths."},
+            {"dimension": "migration", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "MCP callers must move to the broker protocol.", "validationPlan": "Run compatibility tests for all tool contracts."}
+          ],
+          "residualRisks": ["Allow-raw rules intentionally disclose content.", "Content not matched by structured fields, patterns or the entity registry may remain identifying."],
+          "implementationReadiness": {"affectedComponents": ["src/work_assistant/mcp_server.py", "src/work_assistant/archive.py", "src/work_assistant/config.py"], "workPackages": ["Add policy and encrypted vault.", "Add safe broker protocol.", "Move MCP tools to broker client.", "Benchmark and document isolation."], "acceptanceCriteria": ["The gateway has no raw archive API.", "Alias restoration occurs only in the broker.", "Off/all/selective policies are tested."], "migrationNotes": ["Start in selective mode or off for existing installations."], "rollback": "Stop the broker and restore the previous MCP command while retaining the archive backup."}
+        },
+        {
+          "optionId": "local-model-only",
+          "title": "Local-model-only processing",
+          "kind": "foundational",
+          "summary": "Keep model inference on the same trusted device instead of transforming cloud payloads.",
+          "diagramPaths": {"before": "diagrams/agent-privacy-boundary-before.mmd", "after": "diagrams/agent-privacy-boundary-local-model-after.mmd"},
+          "evidenceCoverage": [{"evidenceId": "E001", "effect": "mitigates", "tacticalFixRequired": true, "rationale": "Cloud egress is removed, but local process access still needs governance."}],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "medium", "basis": "source-derived", "assessment": "Avoids routine cloud disclosure but retains local model access to clear data.", "validationPlan": "Verify network isolation and model runtime permissions."},
+            {"dimension": "performance", "direction": "unknown", "confidence": "low", "basis": "hypothetical", "assessment": "Depends on device and model size.", "validationPlan": "Benchmark target hardware and representative tasks."},
+            {"dimension": "memory", "direction": "regresses", "confidence": "medium", "basis": "analogous", "assessment": "Local inference can require substantial RAM.", "validationPlan": "Measure peak unified memory on supported devices."},
+            {"dimension": "reliability", "direction": "unknown", "confidence": "low", "basis": "hypothetical", "assessment": "Removes cloud dependency but adds local runtime constraints.", "validationPlan": "Test offline operation and model startup recovery."},
+            {"dimension": "operability", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Requires model distribution and hardware qualification.", "validationPlan": "Pilot install and upgrade paths."},
+            {"dimension": "migration", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Changes the supported intelligence surface.", "validationPlan": "Compare task quality and tool compatibility."}
+          ],
+          "residualRisks": ["A local model can still expose data through logs or plugins."],
+          "implementationReadiness": {"affectedComponents": [], "workPackages": ["Qualify local models separately."], "acceptanceCriteria": ["No model traffic leaves the device."], "migrationNotes": [], "rollback": "Return to the broker-backed cloud model surface."}
+        }
+      ],
+      "recommendedOptionId": "isolated-broker",
+      "recommendation": "Use the isolated broker when agents may use cloud models; use local-model-only when hardware and quality are acceptable."
+    }
+  ],
+  "openQuestions": ["Which OS isolation recipes will be supported in the first release?"]
+}

@@ -1,0 +1,7 @@
+flowchart LR
+  Provider[Mail provider] --> Broker[Trusted local broker]
+  Broker --> Archive[(Clear archive and encrypted alias vault)]
+  Broker -->|pseudonymized IPC| Gateway[MCP gateway]
+  Gateway --> Agent[Cloud-backed agent]
+  Agent --> Gateway
+  Gateway -->|alias-bearing draft| Broker

@@ -1,6 +1,18 @@
 schema_version = 1
 data_dir = "./workspace"
 
+[privacy]
+# off: no transformation; all: protect every sender; selective: use ordered rules.
+mode = "all"
+default_action = "pseudonymize"
+# Optional owner-only JSON map, for example {"PERSON": ["Alex Example"]}.
+entities_path = "./private/privacy-entities.json"
+
+# In selective mode the first matching sender rule wins.
+#[[privacy.sender_rules]]
+#pattern = "newsletter@example.test"
+#action = "allow_raw"
+
 [accounts.personal]
 provider = "demo"
 source = "./examples/demo-mailbox.jsonl"
