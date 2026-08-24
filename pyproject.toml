@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "work-assistant"
+version = "0.1.0"
+description = "Local-first, provider-neutral email operations for people and AI agents."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Work Assistant contributors" }]
+keywords = ["email", "mcp", "agents", "local-first", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp[cli]>=1.26,<2"]
+dev = ["pytest>=8,<9", "pyyaml>=6,<7"]
+
+[project.scripts]
+work-assistant = "work_assistant.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

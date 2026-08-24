@@ -1,0 +1,19 @@
+schema_version = 1
+data_dir = "./workspace"
+
+[accounts.personal]
+provider = "demo"
+source = "./examples/demo-mailbox.jsonl"
+address = "alex@example.test"
+
+[accounts.team]
+provider = "demo"
+source = "./examples/team-mailbox.jsonl"
+address = "team@example.test"
+
+# Example for guided Zimbra/Carbonio setup. The public repository prepares the
+# local session boundary; a compatible provider adapter is still required.
+# [accounts.work]
+# provider = "zimbra"
+# host = "mail.example.test"
+# address = "alex@example.test"
