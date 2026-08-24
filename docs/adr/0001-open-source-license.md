@@ -1,13 +1,13 @@
-# ADR 0001: Candidate open-source license
+# ADR 0001: Open-source license
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-24
 
 ## Context
 
 Work Assistant needs an explicit license before public distribution. A permissive license lowers adoption friction; a copyleft license better preserves public access to derivatives.
 
-## Candidate decision
+## Decision
 
 Use MIT for the first public release because the provider adapter ecosystem benefits from low integration friction.
 
@@ -18,4 +18,4 @@ Use MIT for the first public release because the provider adapter ecosystem bene
 
 ## Consequences
 
-MIT permits proprietary derivatives and hosted services. Confirm or replace this candidate before adding a public remote or publishing a release.
+MIT permits proprietary derivatives and hosted services. The project may be published under this license.
