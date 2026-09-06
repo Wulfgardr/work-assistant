@@ -20,7 +20,7 @@ class MailProvider(Protocol):
     def fetch_attachment_bytes(self, message_id: str, attachment_id: str) -> bytes: ...
 ```
 
-Un adapter può rifiutare `save_draft`. Gli adapter dimostrativo e maildir lo rifiutano perché sono di sola lettura.
+Un adapter può rifiutare `save_draft`. Gli adapter dimostrativo e maildir lo rifiutano perché sono di sola lettura; imap, graph e zimbra creano bozze senza mai inviare. L'invio resta fuori dal core pubblico.
 
 `fetch_attachment_bytes` restituisce i byte grezzi detenuti dal provider. Gli adapter che non possono fornirli mantengono l'implementazione predefinita, che segnala `AttachmentNotAvailable`: il core riporta lo stato `provider_unsupported` invece di fallire in silenzio. I byte non vengono mai conservati nell'archivio né inoltrati al gateway: solo il testo derivato, pseudonimizzato, attraversa il broker.
 

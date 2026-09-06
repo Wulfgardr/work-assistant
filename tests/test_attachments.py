@@ -373,3 +373,46 @@ def test_capabilities_report_documents_local_only_guarantees() -> None:
     assert [item.name for item in registered_extractors()] == ["builtin-text"]
     unregister_extractor("builtin-text")
     assert registered_extractors() == []
+
+
+def test_unsupported_binary_leaves_no_bytes_in_archive(tmp_path: Path) -> None:
+    raw = b"\x89SYNTHETIC-BINARY-" + os.urandom(48) + b"\xff\xd8MARKER"
+    source = tmp_path / "mail.jsonl"
+    source.write_text(
+        json.dumps(
+            {
+                "id": "m-9",
+                "sender": "sam@example.test",
+                "recipients": ["alex@example.test"],
+                "sent_at": "2026-09-06T10:00:00Z",
+                "subject": "Synthetic binary",
+                "body_text": "See attached.",
+                "attachments": [
+                    {
+                        "id": "bin-1",
+                        "filename": "scan.dat",
+                        "content_type": "application/octet-stream",
+                        "size": len(raw),
+                    }
+                ],
+            }
+        )
+        + "\n"
+    )
+    attachments_dir = tmp_path / "mail.attachments"
+    attachments_dir.mkdir()
+    (attachments_dir / "bin-1").write_bytes(raw)
+    config_path = tmp_path / "work-assistant.toml"
+    config_path.write_text(
+        "schema_version = 1\n"
+        f'data_dir = "{(tmp_path / "data").as_posix()}"\n'
+        "[privacy]\nmode = \"all\"\n"
+        '[accounts.personal]\nprovider = "demo"\naddress = "alex@example.test"\n'
+        f'source = "{source.as_posix()}"\n'
+    )
+    app = WorkAssistant(load_config(config_path))
+    app.sync("personal")
+    result = app.attachment_text("personal", "m-9", "bin-1")
+    assert result["status"] in {"unsupported", "ocr_unavailable"}
+    stored = (tmp_path / "data" / "archive.sqlite3").read_bytes()
+    assert raw not in stored

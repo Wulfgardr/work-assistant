@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import email
-from email.message import Message as EmailMessage
+from email.message import EmailMessage
+from email.utils import formatdate
 import imaplib
 import os
+import time
+from collections.abc import Callable
 from pathlib import Path
 from collections.abc import Callable
 
@@ -78,6 +81,7 @@ class ImapProvider:
         username: str | None = None,
         port: int = 993,
         folder: str = "INBOX",
+        drafts_folder: str = "Drafts",
         max_messages: int = 500,
         timeout: float = 30,
         client_factory: Callable[[], imaplib.IMAP4_SSL] | None = None,
@@ -91,20 +95,30 @@ class ImapProvider:
         self.username = username or account
         self.port = port
         self.folder = folder
+        self.drafts_folder = drafts_folder
         self.max_messages = max(1, max_messages)
         self.timeout = timeout
         self._factory = client_factory or (lambda: imaplib.IMAP4_SSL(host, port, timeout=timeout))
 
-    def _connect(self) -> imaplib.IMAP4_SSL:
+    def _login(self) -> imaplib.IMAP4_SSL:
         try:
             client = self._factory()
             client.login(self.username, self.secret)
-            status, _ = client.select(self.folder, readonly=True)
-            if status != "OK":
-                raise ImapError(f"imap folder {self.folder!r} is not selectable")
             return client
         except imaplib.IMAP4.error as exc:
             raise ImapError("imap authentication failed; check username and secret_file") from exc
+
+    def _connect(self) -> imaplib.IMAP4_SSL:
+        client = self._login()
+        try:
+            status, _ = client.select(self.folder, readonly=True)
+        except imaplib.IMAP4.error as exc:
+            self._close(client)
+            raise ImapError(f"imap folder {self.folder!r} is not selectable") from exc
+        if status != "OK":
+            self._close(client)
+            raise ImapError(f"imap folder {self.folder!r} is not selectable")
+        return client
 
     @staticmethod
     def _close(client: imaplib.IMAP4_SSL) -> None:
@@ -145,7 +159,38 @@ class ImapProvider:
         body: str,
         in_reply_to: str | None = None,
     ) -> str:
-        raise RuntimeError("the imap adapter is read-only")
+        """Store a draft on the provider via APPEND. Never sends."""
+        if not to or not subject.strip():
+            raise ImapError("provider draft requires recipients and a subject")
+        draft = EmailMessage()
+        draft["From"] = self.username
+        draft["To"] = ", ".join(to)
+        draft["Subject"] = subject
+        draft["Date"] = formatdate(localtime=True)
+        if in_reply_to:
+            reference = in_reply_to if in_reply_to.startswith("<") else f"<{in_reply_to}>"
+            draft["In-Reply-To"] = reference
+        draft.set_content(body)
+        client = self._login()
+        try:
+            try:
+                status, data = client.append(
+                    self.drafts_folder, "(\\Draft)", imaplib.Time2Internaldate(time.time()), draft.as_bytes()
+                )
+            except imaplib.IMAP4.error as exc:
+                raise ImapError(
+                    f"cannot store draft in {self.drafts_folder!r}; check the folder exists"
+                ) from exc
+            if status != "OK":
+                raise ImapError(f"cannot store draft in {self.drafts_folder!r}")
+            receipt = ""
+            if data and data[0]:
+                text = data[0].decode(errors="replace") if isinstance(data[0], bytes) else str(data[0])
+                if "APPENDUID" in text:
+                    receipt = text.strip("[]() ")
+            return receipt or f"draft-in-{self.drafts_folder}"
+        finally:
+            self._close(client)
 
     def _find_uid(self, client: imaplib.IMAP4_SSL, message_id: str) -> bytes | None:
         if message_id.startswith("imap-"):

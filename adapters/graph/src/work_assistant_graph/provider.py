@@ -146,7 +146,46 @@ class GraphProvider:
         body: str,
         in_reply_to: str | None = None,
     ) -> str:
-        raise RuntimeError("the graph adapter is read-only")
+        """Create a draft on the provider. Never sends."""
+        if not to or not subject.strip():
+            raise GraphError("provider draft requires recipients and a subject")
+        recipients = [{"emailAddress": {"address": address}} for address in to]
+        try:
+            if in_reply_to:
+                if ".." in in_reply_to or "/" in in_reply_to:
+                    raise GraphError("invalid graph message reference")
+                created = self.client.post(f"/v1.0/me/messages/{in_reply_to}/createReply", {})
+                draft_id = str(created.get("id") or "")
+                if not draft_id:
+                    raise GraphError("graph did not return a draft id")
+                self.client.patch(
+                    f"/v1.0/me/messages/{draft_id}",
+                    {
+                        "subject": subject,
+                        "body": {"contentType": "Text", "content": body},
+                        "toRecipients": recipients,
+                    },
+                )
+            else:
+                created = self.client.post(
+                    "/v1.0/me/messages",
+                    {
+                        "subject": subject,
+                        "body": {"contentType": "Text", "content": body},
+                        "toRecipients": recipients,
+                    },
+                )
+                draft_id = str(created.get("id") or "")
+                if not draft_id:
+                    raise GraphError("graph did not return a draft id")
+            stored = self.client.get(f"/v1.0/me/messages/{draft_id}", {"$select": "id,isDraft"})
+            if stored.get("id") != draft_id or stored.get("isDraft") is False:
+                raise GraphError("graph draft verification failed")
+            return draft_id
+        except GraphError:
+            raise
+        except (GraphAuthError, KeyError, TypeError) as exc:
+            raise GraphError(f"graph draft failed: {exc}") from exc
 
     def fetch_attachment_bytes(self, message_id: str, attachment_id: str) -> bytes:
         if not message_id or not attachment_id or ".." in attachment_id or "/" in attachment_id:

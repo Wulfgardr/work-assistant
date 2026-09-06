@@ -13,6 +13,7 @@ from work_assistant_zimbra.soap import (
     ZimbraTransportError,
     get_msg_request,
     load_session_cookies,
+    save_draft_request,
     search_request,
 )
 
@@ -188,7 +189,17 @@ class ZimbraProvider:
         body: str,
         in_reply_to: str | None = None,
     ) -> str:
-        raise RuntimeError("the zimbra adapter is read-only")
+        """Store a draft on the provider. Standalone only; never sends."""
+        if in_reply_to:
+            raise ZimbraError("zimbra reply drafts are not supported; create a standalone draft")
+        if not to or not subject.strip():
+            raise ZimbraError("provider draft requires recipients and a subject")
+        response = self.client.call(save_draft_request(to, subject, body), "SaveDraftResponse")
+        stored = _children(response, "m")
+        draft_id = str(stored[0].get("id") or "") if stored else ""
+        if not draft_id:
+            raise ZimbraError("zimbra did not return a draft id")
+        return draft_id
 
     def fetch_attachment_bytes(self, message_id: str, attachment_id: str) -> bytes:
         if not message_id or not attachment_id or ".." in attachment_id or "/" in attachment_id:

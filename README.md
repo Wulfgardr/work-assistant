@@ -395,18 +395,17 @@ La versione `0.3.0` applica una correzione per ogni problema rilevato. Il rappor
 
 ## Backup e ripristino
 
-Work Assistant conserva messaggi normalizzati e relativi hash. Questo rende l'archivio controllabile, ma non lo rende automaticamente un backup resiliente.
+Work Assistant conserva messaggi normalizzati e relativi hash. Per una prova completa di backup e ripristino:
 
-Per dichiarare un backup verificato devi definire e provare:
+```bash
+export WORK_ASSISTANT_BACKUP_PASSPHRASE='una-frase-lunga-scelta-da-te'
+work-assistant --config work-assistant.toml backup --out /percorso/esterno/backup-2026-09-07
+work-assistant --config work-assistant.toml backup-verify --from /percorso/esterno/backup-2026-09-07
+```
 
-- quali messaggi e allegati vengono inclusi;
-- cifratura e gestione delle chiavi;
-- frequenza, conservazione e versioni;
-- verifica degli hash;
-- procedura di ripristino in un ambiente isolato;
-- confronto tra contenuto atteso e contenuto ripristinato.
+`backup` cifra l'archivio (PBKDF2 + Fernet) e scrive un manifesto con gli hash; `backup-verify` lo ripristina in una cartella temporanea isolata e confronta hash e conteggi. `restore` ripristina in una cartella dati scelta. La passphrase viaggia solo via variabile d'ambiente, mai come argomento.
 
-La funzione `verify` controlla l'archivio corrente. Non esegue un ripristino.
+Le chiavi (pseudonimi e broker) restano fuori dal backup per disegno: conservale con gli strumenti del sistema operativo, altrimenti gli pseudonimi archiviati non saranno più reversibili. Frequenza e conservazione restano una tua policy.
 
 ## Stato del progetto
 
@@ -421,6 +420,8 @@ Disponibile:
 - adapter sperimentali separati per Zimbra/Carbonio e Microsoft Graph;
 - registro adapter estendibile via entry point;
 - archivio SQLite con hash;
+- prova di backup e ripristino cifrato con manifesto (`backup`, `restore`, `backup-verify`);
+- bozze sul provider via CLI della persona (`draft-on-provider`, mai invio);
 - testo derivato degli allegati con AnyDoc facoltativo e fallback OCR locale;
 - vista locale di contatti e interazioni;
 - CLI;
@@ -431,12 +432,11 @@ Disponibile:
 
 Non disponibile:
 
-- adapter di produzione verificati (Zimbra/Carbonio e Graph in `adapters/` sono sperimentali);
-- invio di email;
-- prova completa di backup e ripristino;
-- pseudonimizzazione del contenuto binario degli allegati;
+- adapter di produzione verificati (sperimentali: validazione su server reale richiesta, vedi [`adapters/VALIDATION.md`](adapters/VALIDATION.md));
+- invio di email (il core non espone invio; solo bozze sul provider dalla CLI della persona);
+- pseudonimizzazione del contenuto binario (i byte non si pseudonimizzano: non vengono mai conservati né inoltrati, solo il testo derivato);
 - OCR ospitato via rete;
-- garanzia di anonimato.
+- garanzia di anonimato (la pseudonimizzazione è reversibile per disegno).
 
 ## Sviluppo e contributi
 

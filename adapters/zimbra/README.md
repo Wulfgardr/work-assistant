@@ -1,6 +1,6 @@
 # work-assistant-zimbra
 
-Experimental **read-only** Zimbra/Carbonio adapter for Work Assistant. Request shapes follow the published SOAP reference (`SearchRequest`, `GetMsgRequest`, content servlet), but server versions differ: verify against the target host before trusting any sync.
+Experimental Zimbra/Carbonio adapter for Work Assistant: read plus standalone drafts, never sends. Request shapes follow the published SOAP reference (`SearchRequest`, `GetMsgRequest`, `SaveDraftRequest`, content servlet), but server versions differ: verify against the target host before trusting any sync.
 
 ## Install
 
@@ -31,10 +31,14 @@ work-assistant --config work-assistant.toml import-zimbra-har \
 ## Security boundaries
 
 - HTTPS only: plain HTTP hosts are refused, TLS verification stays on.
-- No side effects: search never marks messages as read; `save_draft` refuses.
+- No side effects on read: search never marks messages as read. `save_draft` creates standalone drafts only and never sends; reply drafts are refused.
 - Session material stays in the local file (`0600`, outside any agent workspace).
 - Attachment bytes are returned to the core only; derived pseudonymized text is what crosses the broker.
 - A dedicated security review is still required before production use (see `docs/security/DAYBREAK-REVIEW.md` in the core repository).
+
+## Real-server validation
+
+Follow [`../VALIDATION.md`](../VALIDATION.md) with a dedicated synthetic test account before trusting any sync.
 
 ## Develop
 

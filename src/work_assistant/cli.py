@@ -56,8 +56,26 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("--subject", required=True)
     draft.add_argument("--body-file", required=True)
     draft.add_argument("--in-reply-to")
+    provider_draft = sub.add_parser(
+        "draft-on-provider", help="salva una bozza sul provider senza inviare (solo persona)"
+    )
+    provider_draft.add_argument("--account", required=True)
+    provider_draft.add_argument("--to", action="append", required=True)
+    provider_draft.add_argument("--subject", required=True)
+    provider_draft.add_argument("--body-file", required=True)
+    provider_draft.add_argument("--in-reply-to")
     sub.add_parser("knowledge", help="ricostruisce la vista di conoscenza locale")
     sub.add_parser("verify", help="controlla archivio, hash e cache derivata")
+    backup = sub.add_parser("backup", help="esporta l'archivio cifrato con manifesto di hash")
+    backup.add_argument("--out", required=True)
+    backup.add_argument("--passphrase-env", default="WORK_ASSISTANT_BACKUP_PASSPHRASE")
+    restore = sub.add_parser("restore", help="ripristina un backup in una cartella dati")
+    restore.add_argument("--from", dest="backup_dir", required=True)
+    restore.add_argument("--data-dir", required=True)
+    restore.add_argument("--passphrase-env", default="WORK_ASSISTANT_BACKUP_PASSPHRASE")
+    proof = sub.add_parser("backup-verify", help="prova un backup con ripristino isolato")
+    proof.add_argument("--from", dest="backup_dir", required=True)
+    proof.add_argument("--passphrase-env", default="WORK_ASSISTANT_BACKUP_PASSPHRASE")
     plan = sub.add_parser("onboarding-plan", help="mostra il piano persona-agente")
     plan.add_argument("--provider", required=True)
     sub.add_parser("onboarding-status", help="mostra lo stato senza valori segreti")
@@ -147,6 +165,14 @@ def main(argv: list[str] | None = None) -> int:
             args.account, args.to, args.subject, body, args.in_reply_to
         )
         _emit({"draft_candidate_id": draft_id, "status": "local_candidate", "sent": False})
+    elif args.command == "draft-on-provider":
+        body = Path(args.body_file).read_text(encoding="utf-8")
+        try:
+            _emit(
+                app.save_provider_draft(args.account, args.to, args.subject, body, args.in_reply_to)
+            )
+        except Exception as exc:
+            raise SystemExit(f"provider draft failed: {exc}") from exc
     elif args.command == "knowledge":
         view = app.archive.build_knowledge_view()
         target = app.config.data_dir / "knowledge.json"
@@ -155,6 +181,27 @@ def main(argv: list[str] | None = None) -> int:
         _emit({"path": str(target), **view})
     elif args.command == "verify":
         _emit(app.archive.verify())
+    elif args.command == "backup":
+        from work_assistant.backup import BackupError, create_backup
+
+        try:
+            _emit(create_backup(app.config, args.out, passphrase_env=args.passphrase_env))
+        except BackupError as exc:
+            raise SystemExit(f"backup failed: {exc}") from exc
+    elif args.command == "restore":
+        from work_assistant.backup import BackupError, restore_backup
+
+        try:
+            _emit(restore_backup(args.backup_dir, args.data_dir, passphrase_env=args.passphrase_env))
+        except BackupError as exc:
+            raise SystemExit(f"restore failed: {exc}") from exc
+    elif args.command == "backup-verify":
+        from work_assistant.backup import BackupError, verify_backup
+
+        try:
+            _emit(verify_backup(args.backup_dir, passphrase_env=args.passphrase_env))
+        except BackupError as exc:
+            raise SystemExit(f"backup proof failed: {exc}") from exc
     elif args.command == "onboarding-status":
         _emit(onboarding_status(app.config))
     elif args.command == "import-zimbra-har":

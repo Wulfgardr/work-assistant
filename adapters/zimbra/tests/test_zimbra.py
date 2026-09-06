@@ -50,6 +50,10 @@ FAULT = """<?xml version="1.0"?>
 <detail><Error xmlns="urn:zimbra"><Code>mail.NO_SUCH_ITEM</Code></Error></detail>
 </soap:Fault></soap:Body></soap:Envelope>"""
 
+SAVE_DRAFT = """<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/schemas/soap/envelope/">
+<soap:Body><SaveDraftResponse xmlns="urn:zimbraMail"><m id="301"/></SaveDraftResponse></soap:Body></soap:Envelope>"""
+
 
 class FakeTransport:
     def __init__(self) -> None:
@@ -61,6 +65,8 @@ class FakeTransport:
         text = body.decode()
         if "GetMsgRequest" in text:
             return 200, GET_MSG.encode()
+        if "SaveDraftRequest" in text:
+            return 200, SAVE_DRAFT.encode()
         return 200, SEARCH_PAGE.encode()
 
     def get(self, url: str, headers: dict[str, str]) -> tuple[int, bytes]:
@@ -117,16 +123,33 @@ def test_attachment_download_uses_content_servlet(tmp_path: Path) -> None:
         provider.fetch_attachment_bytes("101", "../escape")
 
 
-def test_provider_is_read_only(tmp_path: Path) -> None:
+def test_provider_is_read_only_for_sending(tmp_path: Path) -> None:
     provider = _provider(tmp_path)
-    with pytest.raises(RuntimeError, match="read-only"):
-        provider.save_draft(to=["a@example.test"], subject="s", body="b")
+    with pytest.raises(ZimbraError, match="reply drafts are not supported"):
+        provider.save_draft(to=["a@example.test"], subject="s", body="b", in_reply_to="101")
+
+
+def test_save_draft_returns_server_receipt(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    assert provider.save_draft(to=["sam@example.test"], subject="Synthetic", body="Hi.") == "301"
+    posted = provider.transport_fake.posts[-1][1].decode()  # type: ignore[attr-defined]
+    assert "SaveDraftRequest" in posted and "sam@example.test" in posted
+    with pytest.raises(ZimbraError, match="recipients"):
+        provider.save_draft(to=[], subject="s", body="b")
 
 
 def test_soap_fault_maps_to_code(tmp_path: Path) -> None:
     with pytest.raises(ZimbraSoapError) as caught:
         parse_response(FAULT.encode(), "GetMsgResponse")
     assert caught.value.code == "mail.NO_SUCH_ITEM"
+
+
+def test_expired_session_points_to_har_import(tmp_path: Path) -> None:
+    from work_assistant_zimbra.soap import ZimbraAuthError
+
+    expired = FAULT.replace("mail.NO_SUCH_ITEM", "service.AUTH_EXPIRED")
+    with pytest.raises(ZimbraAuthError, match="import-zimbra-har"):
+        parse_response(expired.encode(), "GetMsgResponse")
 
 
 def test_transport_refuses_plain_http_and_bad_hosts(tmp_path: Path) -> None:

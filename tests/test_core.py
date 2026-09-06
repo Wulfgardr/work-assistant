@@ -85,6 +85,46 @@ def test_draft_candidate_is_local(tmp_path: Path) -> None:
     assert draft_id == 1
 
 
+def test_provider_draft_refusal_is_explicit(tmp_path: Path) -> None:
+    import pytest
+
+    from work_assistant.cli import main
+
+    config_text = (ROOT / "work-assistant.example.toml").read_text()
+    config_text = config_text.replace(
+        "schema_version = 1\n",
+        f'schema_version = 1\ndata_dir = "{(tmp_path / "workspace").as_posix()}"\n',
+        1,
+    )
+    config_path = tmp_path / "work-assistant.toml"
+    config_path.write_text(config_text)
+    examples = tmp_path / "examples"
+    shutil.copytree(ROOT / "examples", examples)
+    body_file = tmp_path / "risposta.txt"
+    body_file.write_text("Synthetic reply.")
+    with pytest.raises(SystemExit, match="provider draft failed"):
+        main(
+            [
+                "--config",
+                str(config_path),
+                "draft-on-provider",
+                "--account",
+                "personal",
+                "--to",
+                "sam@example.test",
+                "--subject",
+                "Re: demo",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+    archive = LocalArchive(tmp_path / "archive.sqlite3")
+    draft_id = archive.create_draft_candidate(
+        "personal", ["sam@example.test"], "Re: Project review", "I will review it."
+    )
+    assert draft_id == 1
+
+
 def test_zimbra_onboarding_keeps_secret_values_local(tmp_path: Path) -> None:
     config_path = tmp_path / "work-assistant.toml"
     workspace = tmp_path / "workspace"

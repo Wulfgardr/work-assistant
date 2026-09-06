@@ -38,6 +38,7 @@ class FakeImap:
         self.searches: list[tuple] = []
         self.logins: list[tuple[str, str]] = []
         self.selected: list[tuple] = []
+        self.appends: list[tuple] = []
 
     def login(self, username: str, password: str) -> None:
         self.logins.append((username, password))
@@ -64,6 +65,12 @@ class FakeImap:
             uid = args[0] if isinstance(args[0], bytes) else str(args[0]).encode()
             return ("OK", [(b"fetch", self.mailbox[uid])])
         raise AssertionError(f"unexpected imap command {command}")
+
+    def append(self, mailbox: str, flags: str, date_time, message: bytes):
+        self.appends.append((mailbox, flags, message))
+        if mailbox == "Missing":
+            return ("NO", [b"no such mailbox"])
+        return ("OK", [b"[APPENDUID 7 42]"])
 
     def close(self) -> None:
         return None
@@ -128,7 +135,34 @@ def test_fetch_attachment_bytes_and_errors(tmp_path: Path) -> None:
         provider.fetch_attachment_bytes("absent@example.test", "part-1")
     with pytest.raises(Exception, match="invalid imap"):
         provider.fetch_attachment_bytes("syn-1@example.test", "../x")
-    with pytest.raises(RuntimeError, match="read-only"):
+
+
+def test_save_draft_appends_without_sending(tmp_path: Path) -> None:
+    provider = _provider(tmp_path, {b"1": _rfc822()})
+    draft_id = provider.save_draft(
+        to=["sam@example.test"], subject="Re: Synthetic", body="Synthetic reply.", in_reply_to="syn-1@example.test"
+    )
+    assert "APPENDUID" in draft_id
+    mailbox, flags, raw = provider.fake.appends[0]  # type: ignore[attr-defined]
+    assert mailbox == "Drafts" and flags == "(\\Draft)"
+    assert b"Subject: Re: Synthetic" in raw and b"In-Reply-To: <syn-1@example.test>" in raw
+    with pytest.raises(ImapError, match="recipients"):
+        provider.save_draft(to=[], subject="s", body="b")
+
+
+def test_save_draft_reports_missing_folder(tmp_path: Path) -> None:
+    secret = tmp_path / "office.secret"
+    secret.write_text("synthetic-app-password\n")
+    secret.chmod(0o600)
+    fake = FakeImap({b"1": _rfc822()})
+    provider = ImapProvider(
+        "office",
+        "imap.example.test",
+        secret,
+        drafts_folder="Missing",
+        client_factory=lambda: fake,  # type: ignore[return-value]
+    )
+    with pytest.raises(ImapError, match="Missing"):
         provider.save_draft(to=["a@example.test"], subject="s", body="b")
 
 
