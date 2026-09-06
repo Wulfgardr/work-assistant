@@ -89,12 +89,12 @@ def _account_name(taken: set[str]):
 
 
 TYPES = [
-    ("demo", "demo — casella sintetica per provare subito, senza credenziali"),
-    ("maildir", "maildir — cartella di posta locale già esportata"),
-    ("imap", "imap — casella reale via IMAP (serve una password per le app)"),
-    ("zimbra", "zimbra — sessione dal browser via file HAR"),
-    ("carbonio", "carbonio — sessione dal browser via file HAR"),
-    ("graph", "graph — Exchange Online / Microsoft 365 via OAuth"),
+    ("demo", "demo - casella sintetica per provare subito, senza credenziali"),
+    ("maildir", "maildir - cartella di posta locale già esportata"),
+    ("imap", "imap - casella reale via IMAP (serve una password per le app)"),
+    ("zimbra", "zimbra - sessione dal browser via file HAR"),
+    ("carbonio", "carbonio - sessione dal browser via file HAR"),
+    ("graph", "graph - Exchange Online / Microsoft 365 via OAuth"),
 ]
 
 
@@ -158,14 +158,14 @@ def render_config(data_dir: Path, mode: str, accounts: list[dict[str, object]]) 
 
 
 PRIVACY_OPTIONS = [
-    ("all", "protetta — pseudonimizza tutti i mittenti (consigliata)"),
-    ("selective", "selettiva — regole per mittente (per esperti)"),
-    ("off", "aperta — nessun filtro; il modello può vedere tutto"),
+    ("all", "protetta - pseudonimizza tutti i mittenti (consigliata)"),
+    ("selective", "selettiva - regole per mittente (per esperti)"),
+    ("off", "aperta - nessun filtro; il modello può vedere tutto"),
 ]
 
 
 def run_setup(config_path: Path, *, demo: bool = False) -> dict[str, object]:
-    print("Work Assistant — configurazione guidata.")
+    print("Work Assistant - configurazione guidata.")
     if demo:
         return _run_demo(config_path)
     print("In tre passi: riservatezza, caselle, prova. Nessun segreto viene mai stampato.")
@@ -256,7 +256,7 @@ def _install_hint(provider: str) -> str:
 def _print_next_steps(config_path: Path, accounts: list[dict[str, object]], report: dict[str, object]) -> None:
     for item in report.get("pending", []):
         assert isinstance(item, dict)
-        print(f"  → {item['account']}: {item['next']}")
+        print(f"  -> {item['account']}: {item['next']}")
     print("Comandi utili:")
     print(f"  work-assistant --config {config_path} doctor")
     print(f"  work-assistant --config {config_path} mcp-setup --client codex")

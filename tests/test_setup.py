@@ -114,7 +114,7 @@ def test_doctor_reports_healthy_config(tmp_path: Path, capsys) -> None:
     run_setup(config_path, demo=True)
     assert run_doctor(config_path) == 0
     out = capsys.readouterr().out
-    assert "✓" in out and "✗" not in out
+    assert "[ok]" in out and "[FAIL]" not in out
 
 
 def test_doctor_flags_missing_secret_with_hint(tmp_path: Path, capsys) -> None:
@@ -128,7 +128,7 @@ def test_doctor_flags_missing_secret_with_hint(tmp_path: Path, capsys) -> None:
     )
     assert run_doctor(config_path) == 1
     out = capsys.readouterr().out
-    assert "✗" in out and "0600" in out
+    assert "[FAIL]" in out and "0600" in out
     assert run_doctor(config_path, as_json=True) == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
@@ -198,4 +198,4 @@ def test_full_demo_flow_through_subprocess(tmp_path: Path) -> None:
         timeout=120,
     )
     assert doctor.returncode == 0, doctor.stdout
-    assert "✓" in doctor.stdout
+    assert "[ok]" in doctor.stdout

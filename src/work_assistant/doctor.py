@@ -124,12 +124,13 @@ def run_checks(config_path: str | Path) -> list[Check]:
 
 
 def format_human(checks: list[Check]) -> str:
-    marks = {"ok": "✓", "fail": "✗", "info": "•"}
+    # ASCII-only marks: Windows consoles without UTF-8 must render this too.
+    marks = {"ok": "[ok]", "fail": "[FAIL]", "info": "[info]"}
     lines = []
     for check in checks:
-        lines.append(f"{marks.get(check.level, '?')} {check.message}")
+        lines.append(f"{marks.get(check.level, '[?]')} {check.message}")
         if not check.ok and check.hint:
-            lines.append(f"    → {check.hint}")
+            lines.append(f"    -> {check.hint}")
     return "\n".join(lines) + "\n"
 
 
