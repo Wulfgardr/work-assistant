@@ -3,13 +3,16 @@
 
 # Work Assistant
 
-  <img src="docs/assets/built-with-codex.svg" width="220" alt="Costruito con Codex" />
-
 **La posta diventa un archivio locale utilizzabile da una persona o da un agente intelligente.**
 
-Indipendente dal provider · Più caselle · CLI · MCP · Revisione umana
+<a href="https://openai.com/codex"><img src="https://img.shields.io/badge/built%20with-Codex-1f2937?style=flat" alt="Built with Codex"></a>
+[![Versione](https://img.shields.io/badge/versione-0.6.0-33506b?style=flat)](#stato-del-progetto)
+[![Licenza](https://img.shields.io/badge/license-MIT-2ea043?style=flat)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white)](#prova-la-demo)
+[![Local-first](https://img.shields.io/badge/data-local--first-8957e5?style=flat)](#come-protegge-i-dati)
+[![Piattaforme](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-CI-6e7681?style=flat)](./docs/PLATFORMS.md)
 
-[Inizia dalla demo](#prova-la-demo) · [Collega un agente](#usa-work-assistant-con-un-agente) · [Comprendi la sicurezza](#come-protegge-i-dati) · [Stato del progetto](#stato-del-progetto)
+[Prova la demo](#prova-la-demo) · [Collega un agente](#usa-work-assistant-con-un-agente) · [Come protegge i dati](#come-protegge-i-dati) · [Stato del progetto](#stato-del-progetto)
 </div>
 
 ---
@@ -18,11 +21,9 @@ Indipendente dal provider · Più caselle · CLI · MCP · Revisione umana
 
 ## Che cos'è Work Assistant
 
-Work Assistant è un sistema locale per organizzare e usare la posta elettronica con strumenti intelligenti.
+Work Assistant è un sistema locale per organizzare e usare la posta elettronica con strumenti intelligenti. Una casella contiene conversazioni, persone, allegati, decisioni e attività aperte: il sistema acquisisce i messaggi da una o più caselle, li normalizza e li conserva in un archivio SQLite locale, da cui ricostruisce una vista di contatti e interazioni.
 
-Il sistema acquisisce messaggi da una o più caselle, li normalizza e li conserva in un archivio SQLite locale. Da questo archivio ricostruisce una vista di contatti e interazioni. Una persona può usare il sistema dalla riga di comando. Un agente, come Codex o Claude, può usarlo tramite il protocollo MCP.
-
-Work Assistant non è un client di posta tradizionale e non è una semplice skill:
+Una persona lo usa dalla riga di comando; un agente, come Codex o Claude, lo usa tramite il protocollo MCP. Non è un client di posta tradizionale e non è una semplice skill:
 
 - il **core** gestisce account, archivio, controlli e contenuti proposti;
 - la **CLI** permette a una persona di usare il core senza un modello;
@@ -40,17 +41,7 @@ Il core pubblico non invia email. Le risposte preparate restano candidati locali
 | Superficie per agenti | MCP espone comandi tipizzati senza consegnare al gateway l'accesso diretto all'archivio. |
 | Controllo umano | Il core pubblico prepara contenuti locali, ma non espone un comando di invio. |
 
-## Perché esiste
-
-Una casella contiene più di singoli messaggi. Contiene conversazioni, persone, allegati, decisioni e attività ancora aperte. I normali client mostrano bene la posta corrente, ma rendono difficile riusare questa storia come conoscenza operativa.
-
-Work Assistant separa tre livelli:
-
-1. **Archivio locale**: conserva ciò che è stato acquisito e ne controlla l'integrità.
-2. **Vista di conoscenza**: ricostruisce contatti e interazioni dall'archivio. È derivata e può essere rigenerata.
-3. **Superficie agente**: permette a un modello di cercare, leggere e preparare contenuti tramite operazioni controllate.
-
-La vista di conoscenza non è la fonte originale e non costituisce, da sola, un backup verificato. Un vero backup richiede anche copia, conservazione, controllo e prova di ripristino.
+Work Assistant separa tre livelli: **archivio locale** (conserva e controlla), **vista di conoscenza** (derivata e rigenerabile, non un backup) e **superficie agente** (cerca, legge e prepara tramite operazioni controllate).
 
 ## Come funziona
 
@@ -170,7 +161,12 @@ Il modo semplice, senza segnaposto da sostituire a mano:
 work-assistant --config work-assistant.toml mcp-setup --client codex --apply
 ```
 
-Client supportati: `codex` e `claude-code` (con `--apply` registrano da soli), `claude-desktop` e `vscode` (mostrano il blocco JSON da copiare). Senza `--apply` mostra il comando esatto. In alternativa, registrazione manuale:
+Client supportati: `codex` e `claude-code` (con `--apply` registrano da soli), `claude-desktop` e `vscode` (mostrano il blocco JSON da copiare). Senza `--apply` mostra il comando esatto.
+
+<details>
+<summary><strong>Registrazione manuale</strong></summary>
+
+Recupera i due valori con `broker-info`, poi sostituisci i segnaposto:
 
 ```bash
 codex mcp add work-assistant -- \
@@ -180,25 +176,7 @@ codex mcp add work-assistant -- \
   --broker-auth-file '<BROKER_AUTH_FILE>'
 ```
 
-Su Windows usa `.venv\Scripts\work-assistant.exe`.
-
-Esempio di richiesta:
-
-> Usa Work Assistant. Controlla la modalità di riservatezza, sincronizza la casella `personal`, mostrami gli ultimi messaggi e prepara un candidato di risposta. Non inviare nulla.
-
-La skill facoltativa si trova in [`skills/work-assistant`](skills/work-assistant). La skill aggiunge regole operative, ma non sostituisce il server MCP.
-
-### 3. Registra il server in Claude Code
-
-```bash
-claude mcp add work-assistant -- \
-  "$PWD/.venv/bin/work-assistant" \
-  mcp \
-  --broker-address '<BROKER_ADDRESS>' \
-  --broker-auth-file '<BROKER_AUTH_FILE>'
-```
-
-Per Claude Desktop, configura un server `stdio` equivalente:
+Su Windows usa `.venv\Scripts\work-assistant.exe`. Per Claude Code il comando è analogo con `claude mcp add`. Per Claude Desktop, configura un server `stdio` equivalente:
 
 ```json
 {
@@ -216,6 +194,14 @@ Per Claude Desktop, configura un server `stdio` equivalente:
   }
 }
 ```
+
+</details>
+
+Esempio di richiesta:
+
+> Usa Work Assistant. Controlla la modalità di riservatezza, sincronizza la casella `personal`, mostrami gli ultimi messaggi e prepara un candidato di risposta. Non inviare nulla.
+
+La skill facoltativa si trova in [`skills/work-assistant`](skills/work-assistant). La skill aggiunge regole operative, ma non sostituisce il server MCP.
 
 ## Usa la CLI senza un agente
 
@@ -392,7 +378,10 @@ Leggi [`SECURITY.md`](SECURITY.md) prima di usare messaggi reali.
 
 Il 24 agosto 2026 una revisione Daybreak ha analizzato il broker, la pseudonimizzazione, l'IPC e la superficie MCP. La revisione ha rilevato sette problemi: uno di gravità media e sei di gravità bassa.
 
-La versione `0.3.0` applica queste correzioni:
+La versione `0.3.0` applica una correzione per ogni problema rilevato. Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md).
+
+<details>
+<summary><strong>Correzioni applicate</strong></summary>
 
 - dati e chiavi fuori dal repository per impostazione predefinita;
 - rifiuto del broker quando il deposito protetto ricade nel workspace dell'agente;
@@ -402,7 +391,7 @@ La versione `0.3.0` applica queste correzioni:
 - numero fisso di worker e scadenza per le connessioni inattive;
 - timeout complessivo su connessione, autenticazione, richiesta e risposta.
 
-Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md). Le versioni successive mantengono questi confini: gli adapter vivono fuori dal core (integrati o in pacchetti separati) e la superficie MCP resta a lista chiusa.
+</details> Le versioni successive mantengono questi confini: gli adapter vivono fuori dal core (integrati o in pacchetti separati) e la superficie MCP resta a lista chiusa.
 
 ## Backup e ripristino
 
