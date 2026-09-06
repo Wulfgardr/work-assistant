@@ -34,12 +34,23 @@ class PrivacyConfig:
 
 
 @dataclass(frozen=True)
+class AttachmentConfig:
+    enabled: bool
+    max_text_chars: int
+    max_bytes: int
+    ocr_mode: str
+    ocr_languages: str
+    ocr_max_pages: int
+
+
+@dataclass(frozen=True)
 class AppConfig:
     path: Path
     data_dir: Path
     accounts: dict[str, AccountConfig]
     privacy: PrivacyConfig
     unsafe_allow_workspace_data: bool
+    attachments: AttachmentConfig
 
 
 def default_data_dir() -> Path:
@@ -77,6 +88,26 @@ def _load_privacy(raw: object, base: Path, data_dir: Path) -> PrivacyConfig:
     return PrivacyConfig(mode, default, tuple(rules), entities_path)
 
 
+def _load_attachments(raw: object) -> AttachmentConfig:
+    item = raw if isinstance(raw, dict) else {}
+    enabled = bool(item.get("enabled", True))
+    try:
+        max_chars = int(item.get("max_text_chars", 20000))
+        max_bytes = int(item.get("max_bytes", 32 * 1024 * 1024))
+        max_pages = int(item.get("ocr_max_pages", 10))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("attachments limits must be integers") from exc
+    if max_chars < 1 or max_bytes < 1024 or max_pages < 1:
+        raise ConfigError("attachments limits are too small")
+    ocr_mode = str(item.get("ocr_mode", "auto")).strip().lower()
+    if ocr_mode not in {"auto", "off"}:
+        raise ConfigError('attachments.ocr_mode must be "auto" or "off"')
+    ocr_languages = str(item.get("ocr_languages", "auto")).strip()
+    if not ocr_languages:
+        raise ConfigError("attachments.ocr_languages must not be empty")
+    return AttachmentConfig(enabled, max_chars, max_bytes, ocr_mode, ocr_languages, max_pages)
+
+
 def load_config(path: str | Path) -> AppConfig:
     config_path = Path(path).expanduser().resolve()
     with config_path.open("rb") as handle:
@@ -102,8 +133,9 @@ def load_config(path: str | Path) -> AppConfig:
         if not provider or not address:
             raise ConfigError(f"account {name!r} requires provider and address")
         options = {k: v for k, v in item.items() if k not in {"provider", "address"}}
-        if "source" in options:
-            options["source"] = str((base / str(options["source"])).resolve())
+        for location_key in ("source", "path"):
+            if location_key in options:
+                options[location_key] = str((base / str(options[location_key])).resolve())
         accounts[name] = AccountConfig(name, provider, address, options)
     return AppConfig(
         config_path,
@@ -111,4 +143,5 @@ def load_config(path: str | Path) -> AppConfig:
         accounts,
         _load_privacy(raw.get("privacy"), base, data_dir),
         bool(raw.get("unsafe_allow_workspace_data", False)),
+        _load_attachments(raw.get("attachments")),
     )

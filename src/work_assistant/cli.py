@@ -22,6 +22,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     init = sub.add_parser("init", help="crea una configurazione locale dall'esempio")
     init.add_argument("--force", action="store_true")
+    setup = sub.add_parser("setup", help="configurazione guidata passo passo")
+    setup.add_argument("--demo", action="store_true", help="demo sintetica in un colpo solo")
+    sub.add_parser("doctor", help="controlla configurazione, segreti e adapter").add_argument(
+        "--json", action="store_true", help="riporta i controlli in JSON"
+    )
+    mcp_setup = sub.add_parser("mcp-setup", help="prepara la registrazione MCP per un client")
+    mcp_setup.add_argument("--client", required=True, choices=["codex", "claude-code", "claude-desktop", "vscode"])
+    mcp_setup.add_argument("--apply", action="store_true", help="registra subito se il client è installato")
     sync = sub.add_parser("sync", help="acquisisce i messaggi di un account configurato")
     sync.add_argument("--account", required=True)
     listing = sub.add_parser("list", help="elenca i messaggi archiviati localmente")
@@ -30,6 +38,16 @@ def build_parser() -> argparse.ArgumentParser:
     show = sub.add_parser("show", help="mostra un messaggio archiviato localmente")
     show.add_argument("--account", required=True)
     show.add_argument("--id", required=True)
+    attachment = sub.add_parser(
+        "attachment-text", help="estrae localmente il testo derivato di un allegato"
+    )
+    attachment.add_argument("--account", required=True)
+    attachment.add_argument("--id", required=True)
+    attachment.add_argument("--attachment-id", required=True)
+    sub.add_parser(
+        "attachment-capabilities",
+        help="mostra estrattori disponibili, stato OCR e limiti",
+    )
     artifact = sub.add_parser("artifact-show", help="mostra un artefatto locale in chiaro")
     artifact.add_argument("--id", type=int, required=True)
     draft = sub.add_parser("draft-candidate", help="salva un candidato locale senza inviare")
@@ -39,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     draft.add_argument("--body-file", required=True)
     draft.add_argument("--in-reply-to")
     sub.add_parser("knowledge", help="ricostruisce la vista di conoscenza locale")
-    sub.add_parser("verify", help="controlla SQLite e gli hash dei messaggi")
+    sub.add_parser("verify", help="controlla archivio, hash e cache derivata")
     plan = sub.add_parser("onboarding-plan", help="mostra il piano persona-agente")
     plan.add_argument("--provider", required=True)
     sub.add_parser("onboarding-status", help="mostra lo stato senza valori segreti")
@@ -87,6 +105,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "benchmark-privacy":
         _emit(benchmark_privacy(args.iterations, args.body_kib, args.budget_ms))
         return 0
+    if args.command == "setup":
+        from work_assistant.setup import SetupAborted, run_setup
+
+        try:
+            run_setup(Path(args.config), demo=args.demo)
+        except SetupAborted as exc:
+            print(exc)
+            return 1
+        return 0
+    if args.command == "doctor":
+        from work_assistant.doctor import run_doctor
+
+        return run_doctor(args.config, as_json=args.json)
+    if args.command == "mcp-setup":
+        from work_assistant.mcp_setup import run_mcp_setup
+
+        return run_mcp_setup(args.config, args.client, apply=args.apply)
     app = WorkAssistant(load_config(args.config))
     if args.command == "sync":
         _emit(app.sync(args.account))
@@ -97,6 +132,10 @@ def main(argv: list[str] | None = None) -> int:
         if message is None:
             raise SystemExit("message not found")
         _emit(message)
+    elif args.command == "attachment-text":
+        _emit(app.attachment_text(args.account, args.id, args.attachment_id))
+    elif args.command == "attachment-capabilities":
+        _emit(app.attachment_capabilities())
     elif args.command == "artifact-show":
         artifact = app.archive.get_local_artifact(args.id)
         if artifact is None:

@@ -3,13 +3,16 @@
 
 # Work Assistant
 
-  <img src="docs/assets/built-with-codex.svg" width="220" alt="Costruito con Codex" />
-
 **La posta diventa un archivio locale utilizzabile da una persona o da un agente intelligente.**
 
-Indipendente dal provider · Più caselle · CLI · MCP · Revisione umana
+<a href="https://openai.com/codex"><img src="https://img.shields.io/badge/built%20with-Codex-1f2937?style=flat" alt="Built with Codex"></a>
+[![Versione](https://img.shields.io/badge/versione-0.6.0-33506b?style=flat)](#stato-del-progetto)
+[![Licenza](https://img.shields.io/badge/license-MIT-2ea043?style=flat)](./LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white)](#prova-la-demo)
+[![Local-first](https://img.shields.io/badge/data-local--first-8957e5?style=flat)](#come-protegge-i-dati)
+[![Piattaforme](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-CI-6e7681?style=flat)](./docs/PLATFORMS.md)
 
-[Inizia dalla demo](#prova-la-demo) · [Collega un agente](#usa-work-assistant-con-un-agente) · [Comprendi la sicurezza](#come-protegge-i-dati) · [Stato del progetto](#stato-del-progetto)
+[Prova la demo](#prova-la-demo) · [Collega un agente](#usa-work-assistant-con-un-agente) · [Come protegge i dati](#come-protegge-i-dati) · [Stato del progetto](#stato-del-progetto)
 </div>
 
 ---
@@ -18,11 +21,9 @@ Indipendente dal provider · Più caselle · CLI · MCP · Revisione umana
 
 ## Che cos'è Work Assistant
 
-Work Assistant è un sistema locale per organizzare e usare la posta elettronica con strumenti intelligenti.
+Work Assistant è un sistema locale per organizzare e usare la posta elettronica con strumenti intelligenti. Una casella contiene conversazioni, persone, allegati, decisioni e attività aperte: il sistema acquisisce i messaggi da una o più caselle, li normalizza e li conserva in un archivio SQLite locale, da cui ricostruisce una vista di contatti e interazioni.
 
-Il sistema acquisisce messaggi da una o più caselle, li normalizza e li conserva in un archivio SQLite locale. Da questo archivio ricostruisce una vista di contatti e interazioni. Una persona può usare il sistema dalla riga di comando. Un agente, come Codex o Claude, può usarlo tramite il protocollo MCP.
-
-Work Assistant non è un client di posta tradizionale e non è una semplice skill:
+Una persona lo usa dalla riga di comando; un agente, come Codex o Claude, lo usa tramite il protocollo MCP. Non è un client di posta tradizionale e non è una semplice skill:
 
 - il **core** gestisce account, archivio, controlli e contenuti proposti;
 - la **CLI** permette a una persona di usare il core senza un modello;
@@ -40,17 +41,7 @@ Il core pubblico non invia email. Le risposte preparate restano candidati locali
 | Superficie per agenti | MCP espone comandi tipizzati senza consegnare al gateway l'accesso diretto all'archivio. |
 | Controllo umano | Il core pubblico prepara contenuti locali, ma non espone un comando di invio. |
 
-## Perché esiste
-
-Una casella contiene più di singoli messaggi. Contiene conversazioni, persone, allegati, decisioni e attività ancora aperte. I normali client mostrano bene la posta corrente, ma rendono difficile riusare questa storia come conoscenza operativa.
-
-Work Assistant separa tre livelli:
-
-1. **Archivio locale**: conserva ciò che è stato acquisito e ne controlla l'integrità.
-2. **Vista di conoscenza**: ricostruisce contatti e interazioni dall'archivio. È derivata e può essere rigenerata.
-3. **Superficie agente**: permette a un modello di cercare, leggere e preparare contenuti tramite operazioni controllate.
-
-La vista di conoscenza non è la fonte originale e non costituisce, da sola, un backup verificato. Un vero backup richiede anche copia, conservazione, controllo e prova di ripristino.
+Work Assistant separa tre livelli: **archivio locale** (conserva e controlla), **vista di conoscenza** (derivata e rigenerabile, non un backup) e **superficie agente** (cerca, legge e prepara tramite operazioni controllate).
 
 ## Come funziona
 
@@ -110,25 +101,31 @@ Installa Work Assistant:
 python -m pip install .
 ```
 
-### 2. Crea la configurazione
+### 2. Avvia la demo in un colpo solo
 
 ```bash
-work-assistant --config work-assistant.toml init
+work-assistant --config work-assistant.toml setup --demo
 ```
 
-Il comando inserisce una cartella dati specifica del sistema operativo. Archivio, chiavi e registro delle identità non vengono collocati nel repository.
-
-### 3. Carica le caselle sintetiche
+Il comando crea la configurazione con una cartella dati specifica del sistema operativo, carica la casella sintetica e controlla l'archivio. Archivio, chiavi e registro delle identità non vengono collocati nel repository. Poi esplora:
 
 ```bash
-work-assistant --config work-assistant.toml sync --account personal
-work-assistant --config work-assistant.toml sync --account team
 work-assistant --config work-assistant.toml list
+work-assistant --config work-assistant.toml attachment-text --account personal --id p-001 --attachment-id a-001
 work-assistant --config work-assistant.toml knowledge
 work-assistant --config work-assistant.toml verify
+work-assistant --config work-assistant.toml doctor
 ```
 
-Il comando `verify` controlla l'integrità di SQLite e gli hash dei messaggi. Non dimostra che un backup possa essere ripristinato.
+Il comando `verify` controlla l'integrità di SQLite e gli hash dei messaggi. Non dimostra che un backup possa essere ripristinato. Il comando `doctor` spiega in chiaro se qualcosa non va e come sistemarlo.
+
+### 3. Collega caselle vere con la procedura guidata
+
+```bash
+work-assistant --config work-assistant.toml setup
+```
+
+La procedura chiede livello di riservatezza e dati delle caselle, valida ogni risposta, non stampa mai segreti e prova la sincronizzazione dove possibile. Per IMAP serve una password per le app in un file locale; per Zimbra o Carbonio un file HAR dal browser; per Microsoft 365 un client ID (vedi le sezioni sotto).
 
 ## Usa Work Assistant con un agente
 
@@ -156,9 +153,20 @@ In un secondo terminale, recupera i due percorsi necessari:
 work-assistant --config work-assistant.toml broker-info
 ```
 
-### 2. Registra il server in Codex
+### 2. Registra il server nel tuo client
 
-Sostituisci i due segnaposto con i valori di `broker-info`:
+Il modo semplice, senza segnaposto da sostituire a mano:
+
+```bash
+work-assistant --config work-assistant.toml mcp-setup --client codex --apply
+```
+
+Client supportati: `codex` e `claude-code` (con `--apply` registrano da soli), `claude-desktop` e `vscode` (mostrano il blocco JSON da copiare). Senza `--apply` mostra il comando esatto.
+
+<details>
+<summary><strong>Registrazione manuale</strong></summary>
+
+Recupera i due valori con `broker-info`, poi sostituisci i segnaposto:
 
 ```bash
 codex mcp add work-assistant -- \
@@ -168,25 +176,7 @@ codex mcp add work-assistant -- \
   --broker-auth-file '<BROKER_AUTH_FILE>'
 ```
 
-Su Windows usa `.venv\Scripts\work-assistant.exe`.
-
-Esempio di richiesta:
-
-> Usa Work Assistant. Controlla la modalità di riservatezza, sincronizza la casella `personal`, mostrami gli ultimi messaggi e prepara un candidato di risposta. Non inviare nulla.
-
-La skill facoltativa si trova in [`skills/work-assistant`](skills/work-assistant). La skill aggiunge regole operative, ma non sostituisce il server MCP.
-
-### 3. Registra il server in Claude Code
-
-```bash
-claude mcp add work-assistant -- \
-  "$PWD/.venv/bin/work-assistant" \
-  mcp \
-  --broker-address '<BROKER_ADDRESS>' \
-  --broker-auth-file '<BROKER_AUTH_FILE>'
-```
-
-Per Claude Desktop, configura un server `stdio` equivalente:
+Su Windows usa `.venv\Scripts\work-assistant.exe`. Per Claude Code il comando è analogo con `claude mcp add`. Per Claude Desktop, configura un server `stdio` equivalente:
 
 ```json
 {
@@ -204,6 +194,14 @@ Per Claude Desktop, configura un server `stdio` equivalente:
   }
 }
 ```
+
+</details>
+
+Esempio di richiesta:
+
+> Usa Work Assistant. Controlla la modalità di riservatezza, sincronizza la casella `personal`, mostrami gli ultimi messaggi e prepara un candidato di risposta. Non inviare nulla.
+
+La skill facoltativa si trova in [`skills/work-assistant`](skills/work-assistant). La skill aggiunge regole operative, ma non sostituisce il server MCP.
 
 ## Usa la CLI senza un agente
 
@@ -230,9 +228,29 @@ La risposta include `sent: false`. Nessun contenuto viene scritto sul provider.
 
 Un agente con accesso a un terminale deve usare MCP. Non deve leggere direttamente SQLite né l'output in chiaro della CLI.
 
+## Leggi gli allegati come testo derivato
+
+Work Assistant estrae localmente il testo degli allegati. I byte originali restano dal provider: l'archivio conserva solo il testo derivato con l'hash della sorgente e il broker lo pseudonimizza prima di esporlo agli agenti.
+
+```bash
+work-assistant --config work-assistant.toml attachment-capabilities
+work-assistant --config work-assistant.toml attachment-text \
+  --account personal --id p-001 --attachment-id a-001
+```
+
+Gli estrattori `builtin-text` e `builtin-html` sono sempre disponibili. Per documenti Office, EPUB, RTF, CSV e PDF con livello di testo installa il supporto facoltativo AnyDoc, che lavora in locale senza chiavi né rete:
+
+```bash
+python -m pip install '.[attachments]'
+```
+
+Quando un documento non ha un livello di testo utilizzabile, il sistema usa il fallback OCR locale tramite il binario `tesseract`, se presente (per i PDF scansionati le pagine vengono prima rese in immagini con `pdftoppm`, se presente; `ocr_mode = "off"` disabilita tutto). I servizi OCR ospitati restano fuori ambito: invierebbero contenuti a terzi. Lo stato di ogni lettura (`ok`, `needs_ocr`, `ocr_unavailable`, `unsupported`, `provider_unsupported`) è sempre visibile, anche via MCP con `mail_attachment_capabilities` e `mail_attachment_text`.
+
+Limiti e comportamento si configurano nella sezione `[attachments]` di `work-assistant.toml`. La pseudonimizzazione del contenuto binario resta non disponibile: ciò che attraversa il broker è solo testo derivato.
+
 ## Configura più caselle
 
-Ogni tabella sotto `[accounts]` descrive una casella indipendente:
+Ogni tabella sotto `[accounts]` descrive una casella indipendente (chi preferisce le domande guidate usi `work-assistant setup`):
 
 ```toml
 schema_version = 1
@@ -253,11 +271,18 @@ source = "./examples/team-mailbox.jsonl"
 address = "team@example.test"
 ```
 
-Il repository include solo l'adapter dimostrativo. Gli adapter reali devono implementare il contratto descritto in [`docs/PROVIDER_ADAPTERS.md`](docs/PROVIDER_ADAPTERS.md).
+Il repository include gli adapter integrati `demo` (fixture JSONL sintetiche), `maildir` (cartella Maildir locale, senza rete) e `imap` (IMAP generico, solo TLS, con password in file segreto). Gli adapter reali devono implementare il contratto descritto in [`docs/PROVIDER_ADAPTERS.md`](docs/PROVIDER_ADAPTERS.md) e registrarsi nel gruppo di entry point `work_assistant.providers`.
+
+```toml
+[accounts.local]
+provider = "maildir"
+path = "/percorso/locale/Maildir"
+address = "alex@example.test"
+```
 
 ### Zimbra e Carbonio
 
-La versione pubblica include un onboarding locale per preparare una sessione Zimbra o Carbonio da un file HAR. L'adapter Zimbra operativo non è incluso.
+La versione pubblica include un onboarding locale per preparare una sessione Zimbra o Carbonio da un file HAR, più un adapter sperimentale di sola lettura in [`adapters/zimbra`](adapters/zimbra) (SOAP + servlet dei contenuti, solo HTTPS, richiede revisione dedicata prima di un uso in produzione).
 
 ```mermaid
 sequenceDiagram
@@ -281,6 +306,37 @@ work-assistant --config work-assistant.toml import-zimbra-har \
 ```
 
 Il comando non elimina il file HAR. Dopo la verifica, sposta o elimina l'esportazione con una procedura adeguata al suo contenuto sensibile.
+
+### Exchange Online (Microsoft 365)
+
+L'adapter sperimentale di sola lettura in [`adapters/graph`](adapters/graph) usa OAuth2 device code con il solo permesso delegato `Mail.Read`: niente password né segreti condivisi. Dopo `python -m pip install ./adapters/graph`:
+
+```toml
+[accounts.office]
+provider = "graph"
+address = "alex@example.test"
+client_id = "00000000-0000-0000-0000-000000000000"
+tenant = "common"
+token_file = "/secure/path/office.graph.token.json"
+```
+
+```bash
+work-assistant-graph-login --config work-assistant.toml --account office
+```
+
+La persona approva nel browser; i token restano nel file locale e vengono aggiornati in silenzio.
+
+### IMAP generico
+
+L'adapter integrato parla con qualunque server IMAP, solo via TLS e in sola lettura. La password per le app vive in un file locale (`0600`), mai nel TOML:
+
+```toml
+[accounts.office]
+provider = "imap"
+host = "imap.example.test"
+address = "alex@example.test"
+secret_file = "/secure/path/office.imap.secret"
+```
 
 ## Come protegge i dati
 
@@ -322,7 +378,10 @@ Leggi [`SECURITY.md`](SECURITY.md) prima di usare messaggi reali.
 
 Il 24 agosto 2026 una revisione Daybreak ha analizzato il broker, la pseudonimizzazione, l'IPC e la superficie MCP. La revisione ha rilevato sette problemi: uno di gravità media e sei di gravità bassa.
 
-La versione `0.3.0` applica queste correzioni:
+La versione `0.3.0` applica una correzione per ogni problema rilevato. Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md).
+
+<details>
+<summary><strong>Correzioni applicate</strong></summary>
 
 - dati e chiavi fuori dal repository per impostazione predefinita;
 - rifiuto del broker quando il deposito protetto ricade nel workspace dell'agente;
@@ -332,7 +391,7 @@ La versione `0.3.0` applica queste correzioni:
 - numero fisso di worker e scadenza per le connessioni inattive;
 - timeout complessivo su connessione, autenticazione, richiesta e risposta.
 
-Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md).
+</details> Le versioni successive mantengono questi confini: gli adapter vivono fuori dal core (integrati o in pacchetti separati) e la superficie MCP resta a lista chiusa.
 
 ## Backup e ripristino
 
@@ -357,21 +416,26 @@ Disponibile:
 
 - core indipendente dal provider;
 - configurazione multi-casella;
-- adapter demo sintetico;
+- configurazione guidata (`setup`), diagnosi (`doctor`) e registrazione MCP assistita (`mcp-setup`);
+- adapter demo sintetico, maildir locale e IMAP generico (solo TLS);
+- adapter sperimentali separati per Zimbra/Carbonio e Microsoft Graph;
+- registro adapter estendibile via entry point;
 - archivio SQLite con hash;
+- testo derivato degli allegati con AnyDoc facoltativo e fallback OCR locale;
 - vista locale di contatti e interazioni;
 - CLI;
 - gateway MCP e broker locale;
 - pseudonimi reversibili;
 - skill per agenti;
-- onboarding preparatorio Zimbra e Carbonio.
+- onboarding guidato per demo, maildir, IMAP, Zimbra, Carbonio e Graph.
 
 Non disponibile:
 
-- adapter di produzione per provider reali;
+- adapter di produzione verificati (Zimbra/Carbonio e Graph in `adapters/` sono sperimentali);
 - invio di email;
 - prova completa di backup e ripristino;
 - pseudonimizzazione del contenuto binario degli allegati;
+- OCR ospitato via rete;
 - garanzia di anonimato.
 
 ## Sviluppo e contributi
@@ -379,7 +443,10 @@ Non disponibile:
 ```bash
 python -m pip install '.[dev,mcp]'
 pytest
+PYTHONPATH=src:adapters/zimbra/src pytest adapters/zimbra/tests -q
+PYTHONPATH=src:adapters/graph/src pytest adapters/graph/tests -q
 python scripts/privacy_check.py
+python scripts/validate_skill.py
 work-assistant benchmark-privacy --iterations 50
 ```
 

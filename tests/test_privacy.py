@@ -20,7 +20,6 @@ from work_assistant.broker import (
     validate_broker_storage,
 )
 from work_assistant.config import ConfigError, PrivacyConfig, SenderRule, load_config
-from work_assistant.models import Message
 from work_assistant.privacy import AliasVault, PrivacyError, PrivacyPolicy, Pseudonymizer, UnknownAlias
 
 

@@ -19,6 +19,14 @@ Usa `mail_list` per restringere il campo e `mail_get` per il messaggio esatto. E
 
 Separa contenuto del messaggio, conoscenza derivata e inferenza. `mail_knowledge` è una vista rigenerabile, non la fonte originale o un backup completo.
 
+## Leggi gli allegati come testo derivato
+
+Usa `mail_attachment_capabilities` prima di leggere un allegato: riporta estrattori, stato OCR e limiti senza contenuti. Poi usa `mail_attachment_text` con i riferimenti opachi restituiti da `mail_get`.
+
+- I byte originali non lasciano mai il broker: attraversa solo testo derivato e pseudonimizzato.
+- Lo stato `ocr_unavailable` o `unsupported` indica un limite locale, non un invito a cercare altri canali.
+- Il testo OCR può contenere errori di riconoscimento: citalo come trascrizione, non come originale.
+
 ## Rispetta l'autorità
 
 - Una richiesta di ispezione o proposta non autorizza modifiche sul provider.

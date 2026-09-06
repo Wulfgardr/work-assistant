@@ -9,4 +9,4 @@
 - Gli agenti collegati a modelli cloud devono usare il gateway MCP attraverso il broker.
 - Mantieni la cartella dati del broker fuori dal workspace leggibile dall'agente.
 - Chiama la funzione pseudonimizzazione reversibile, non anonimizzazione.
-- Prima di un commit esegui `pytest`, `python scripts/privacy_check.py` e il validatore della skill.
+- Prima di un commit esegui `pytest`, i test degli adapter (`PYTHONPATH=src:adapters/<nome>/src pytest adapters/<nome>/tests -q`), `python scripts/privacy_check.py` e `python scripts/validate_skill.py`.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "work-assistant"
-version = "0.3.0"
+version = "0.6.0"
 description = "Gestione locale e indipendente dal provider per persone e agenti AI."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,6 +20,7 @@ dependencies = ["cryptography>=45,<51"]
 
 [project.optional-dependencies]
 mcp = ["mcp[cli]>=1.26,<2"]
+attachments = ["firecrawl-anydoc>=0.2,<1"]
 dev = ["build>=1.2,<2", "pytest>=8,<9", "pyyaml>=6,<7"]
 
 [project.scripts]

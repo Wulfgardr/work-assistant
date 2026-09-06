@@ -21,3 +21,27 @@ jobs:
       - run: pytest
       - run: python scripts/privacy_check.py
       - run: work-assistant benchmark-privacy --iterations 20 --body-kib 4 --budget-ms 50
+
+  adapter-zimbra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pytest pyyaml
+      - run: PYTHONPATH=src:adapters/zimbra/src python -m pytest adapters/zimbra/tests -q
+      - run: python scripts/privacy_check.py
+      - run: python scripts/validate_skill.py
+
+  adapter-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pytest pyyaml
+      - run: PYTHONPATH=src:adapters/graph/src python -m pytest adapters/graph/tests -q
+      - run: python scripts/privacy_check.py
+      - run: python scripts/validate_skill.py

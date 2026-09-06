@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "work-assistant-graph"
+version = "0.1.0"
+description = "Experimental read-only Microsoft Graph adapter for Work Assistant."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Work Assistant contributors" }]
+keywords = ["email", "microsoft-graph", "m365", "exchange", "work-assistant"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = ["work-assistant>=0.5"]
+
+[project.scripts]
+work-assistant-graph-login = "work_assistant_graph.cli:main"
+
+[project.entry-points."work_assistant.providers"]
+graph = "work_assistant_graph.provider:graph_provider"
+m365 = "work_assistant_graph.provider:graph_provider"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

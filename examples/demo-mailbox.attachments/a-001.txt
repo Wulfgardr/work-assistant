@@ -1,0 +1,4 @@
+Synthetic project note for the demo mailbox.
+Please review the milestones before Friday.
+Owner: alex@example.test, contact +39 02 1234 5678.
+This file exists only to exercise local attachment text extraction.
