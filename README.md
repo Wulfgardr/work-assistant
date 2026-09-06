@@ -110,25 +110,31 @@ Installa Work Assistant:
 python -m pip install .
 ```
 
-### 2. Crea la configurazione
+### 2. Avvia la demo in un colpo solo
 
 ```bash
-work-assistant --config work-assistant.toml init
+work-assistant --config work-assistant.toml setup --demo
 ```
 
-Il comando inserisce una cartella dati specifica del sistema operativo. Archivio, chiavi e registro delle identità non vengono collocati nel repository.
-
-### 3. Carica le caselle sintetiche
+Il comando crea la configurazione con una cartella dati specifica del sistema operativo, carica la casella sintetica e controlla l'archivio. Archivio, chiavi e registro delle identità non vengono collocati nel repository. Poi esplora:
 
 ```bash
-work-assistant --config work-assistant.toml sync --account personal
-work-assistant --config work-assistant.toml sync --account team
 work-assistant --config work-assistant.toml list
+work-assistant --config work-assistant.toml attachment-text --account personal --id p-001 --attachment-id a-001
 work-assistant --config work-assistant.toml knowledge
 work-assistant --config work-assistant.toml verify
+work-assistant --config work-assistant.toml doctor
 ```
 
-Il comando `verify` controlla l'integrità di SQLite e gli hash dei messaggi. Non dimostra che un backup possa essere ripristinato.
+Il comando `verify` controlla l'integrità di SQLite e gli hash dei messaggi. Non dimostra che un backup possa essere ripristinato. Il comando `doctor` spiega in chiaro se qualcosa non va e come sistemarlo.
+
+### 3. Collega caselle vere con la procedura guidata
+
+```bash
+work-assistant --config work-assistant.toml setup
+```
+
+La procedura chiede livello di riservatezza e dati delle caselle, valida ogni risposta, non stampa mai segreti e prova la sincronizzazione dove possibile. Per IMAP serve una password per le app in un file locale; per Zimbra o Carbonio un file HAR dal browser; per Microsoft 365 un client ID (vedi le sezioni sotto).
 
 ## Usa Work Assistant con un agente
 
@@ -156,9 +162,15 @@ In un secondo terminale, recupera i due percorsi necessari:
 work-assistant --config work-assistant.toml broker-info
 ```
 
-### 2. Registra il server in Codex
+### 2. Registra il server nel tuo client
 
-Sostituisci i due segnaposto con i valori di `broker-info`:
+Il modo semplice, senza segnaposto da sostituire a mano:
+
+```bash
+work-assistant --config work-assistant.toml mcp-setup --client codex --apply
+```
+
+Client supportati: `codex` e `claude-code` (con `--apply` registrano da soli), `claude-desktop` e `vscode` (mostrano il blocco JSON da copiare). Senza `--apply` mostra il comando esatto. In alternativa, registrazione manuale:
 
 ```bash
 codex mcp add work-assistant -- \
@@ -230,9 +242,29 @@ La risposta include `sent: false`. Nessun contenuto viene scritto sul provider.
 
 Un agente con accesso a un terminale deve usare MCP. Non deve leggere direttamente SQLite né l'output in chiaro della CLI.
 
+## Leggi gli allegati come testo derivato
+
+Work Assistant estrae localmente il testo degli allegati. I byte originali restano dal provider: l'archivio conserva solo il testo derivato con l'hash della sorgente e il broker lo pseudonimizza prima di esporlo agli agenti.
+
+```bash
+work-assistant --config work-assistant.toml attachment-capabilities
+work-assistant --config work-assistant.toml attachment-text \
+  --account personal --id p-001 --attachment-id a-001
+```
+
+Gli estrattori `builtin-text` e `builtin-html` sono sempre disponibili. Per documenti Office, EPUB, RTF, CSV e PDF con livello di testo installa il supporto facoltativo AnyDoc, che lavora in locale senza chiavi né rete:
+
+```bash
+python -m pip install '.[attachments]'
+```
+
+Quando un documento non ha un livello di testo utilizzabile, il sistema usa il fallback OCR locale tramite il binario `tesseract`, se presente (per i PDF scansionati le pagine vengono prima rese in immagini con `pdftoppm`, se presente; `ocr_mode = "off"` disabilita tutto). I servizi OCR ospitati restano fuori ambito: invierebbero contenuti a terzi. Lo stato di ogni lettura (`ok`, `needs_ocr`, `ocr_unavailable`, `unsupported`, `provider_unsupported`) è sempre visibile, anche via MCP con `mail_attachment_capabilities` e `mail_attachment_text`.
+
+Limiti e comportamento si configurano nella sezione `[attachments]` di `work-assistant.toml`. La pseudonimizzazione del contenuto binario resta non disponibile: ciò che attraversa il broker è solo testo derivato.
+
 ## Configura più caselle
 
-Ogni tabella sotto `[accounts]` descrive una casella indipendente:
+Ogni tabella sotto `[accounts]` descrive una casella indipendente (chi preferisce le domande guidate usi `work-assistant setup`):
 
 ```toml
 schema_version = 1
@@ -253,11 +285,18 @@ source = "./examples/team-mailbox.jsonl"
 address = "team@example.test"
 ```
 
-Il repository include solo l'adapter dimostrativo. Gli adapter reali devono implementare il contratto descritto in [`docs/PROVIDER_ADAPTERS.md`](docs/PROVIDER_ADAPTERS.md).
+Il repository include gli adapter integrati `demo` (fixture JSONL sintetiche), `maildir` (cartella Maildir locale, senza rete) e `imap` (IMAP generico, solo TLS, con password in file segreto). Gli adapter reali devono implementare il contratto descritto in [`docs/PROVIDER_ADAPTERS.md`](docs/PROVIDER_ADAPTERS.md) e registrarsi nel gruppo di entry point `work_assistant.providers`.
+
+```toml
+[accounts.local]
+provider = "maildir"
+path = "/percorso/locale/Maildir"
+address = "alex@example.test"
+```
 
 ### Zimbra e Carbonio
 
-La versione pubblica include un onboarding locale per preparare una sessione Zimbra o Carbonio da un file HAR. L'adapter Zimbra operativo non è incluso.
+La versione pubblica include un onboarding locale per preparare una sessione Zimbra o Carbonio da un file HAR, più un adapter sperimentale di sola lettura in [`adapters/zimbra`](adapters/zimbra) (SOAP + servlet dei contenuti, solo HTTPS, richiede revisione dedicata prima di un uso in produzione).
 
 ```mermaid
 sequenceDiagram
@@ -281,6 +320,37 @@ work-assistant --config work-assistant.toml import-zimbra-har \
 ```
 
 Il comando non elimina il file HAR. Dopo la verifica, sposta o elimina l'esportazione con una procedura adeguata al suo contenuto sensibile.
+
+### Exchange Online (Microsoft 365)
+
+L'adapter sperimentale di sola lettura in [`adapters/graph`](adapters/graph) usa OAuth2 device code con il solo permesso delegato `Mail.Read`: niente password né segreti condivisi. Dopo `python -m pip install ./adapters/graph`:
+
+```toml
+[accounts.office]
+provider = "graph"
+address = "alex@example.test"
+client_id = "00000000-0000-0000-0000-000000000000"
+tenant = "common"
+token_file = "/secure/path/office.graph.token.json"
+```
+
+```bash
+work-assistant-graph-login --config work-assistant.toml --account office
+```
+
+La persona approva nel browser; i token restano nel file locale e vengono aggiornati in silenzio.
+
+### IMAP generico
+
+L'adapter integrato parla con qualunque server IMAP, solo via TLS e in sola lettura. La password per le app vive in un file locale (`0600`), mai nel TOML:
+
+```toml
+[accounts.office]
+provider = "imap"
+host = "imap.example.test"
+address = "alex@example.test"
+secret_file = "/secure/path/office.imap.secret"
+```
 
 ## Come protegge i dati
 
@@ -332,7 +402,7 @@ La versione `0.3.0` applica queste correzioni:
 - numero fisso di worker e scadenza per le connessioni inattive;
 - timeout complessivo su connessione, autenticazione, richiesta e risposta.
 
-Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md).
+Il rapporto, le prove e i limiti residui sono in [`docs/security/DAYBREAK-REVIEW.md`](docs/security/DAYBREAK-REVIEW.md). Le versioni successive mantengono questi confini: gli adapter vivono fuori dal core (integrati o in pacchetti separati) e la superficie MCP resta a lista chiusa.
 
 ## Backup e ripristino
 
@@ -357,21 +427,26 @@ Disponibile:
 
 - core indipendente dal provider;
 - configurazione multi-casella;
-- adapter demo sintetico;
+- configurazione guidata (`setup`), diagnosi (`doctor`) e registrazione MCP assistita (`mcp-setup`);
+- adapter demo sintetico, maildir locale e IMAP generico (solo TLS);
+- adapter sperimentali separati per Zimbra/Carbonio e Microsoft Graph;
+- registro adapter estendibile via entry point;
 - archivio SQLite con hash;
+- testo derivato degli allegati con AnyDoc facoltativo e fallback OCR locale;
 - vista locale di contatti e interazioni;
 - CLI;
 - gateway MCP e broker locale;
 - pseudonimi reversibili;
 - skill per agenti;
-- onboarding preparatorio Zimbra e Carbonio.
+- onboarding guidato per demo, maildir, IMAP, Zimbra, Carbonio e Graph.
 
 Non disponibile:
 
-- adapter di produzione per provider reali;
+- adapter di produzione verificati (Zimbra/Carbonio e Graph in `adapters/` sono sperimentali);
 - invio di email;
 - prova completa di backup e ripristino;
 - pseudonimizzazione del contenuto binario degli allegati;
+- OCR ospitato via rete;
 - garanzia di anonimato.
 
 ## Sviluppo e contributi
@@ -379,7 +454,10 @@ Non disponibile:
 ```bash
 python -m pip install '.[dev,mcp]'
 pytest
+PYTHONPATH=src:adapters/zimbra/src pytest adapters/zimbra/tests -q
+PYTHONPATH=src:adapters/graph/src pytest adapters/graph/tests -q
 python scripts/privacy_check.py
+python scripts/validate_skill.py
 work-assistant benchmark-privacy --iterations 50
 ```
 

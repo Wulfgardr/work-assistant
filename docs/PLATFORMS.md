@@ -9,6 +9,7 @@ Work Assistant richiede Python 3.11 o successivo e punta a Windows, Linux e macO
 - cassaforte AES-GCM e pseudonimi derivati con HMAC;
 - protocollo JSON autenticato tra gateway e broker;
 - strumenti MCP e comandi CLI equivalenti;
+- configurazione guidata (`setup`), diagnosi (`doctor`) e registrazione MCP (`mcp-setup`) solo con la libreria standard, identici su ogni piattaforma;
 - benchmark sintetico della pseudonimizzazione.
 
 ## Trasporto del broker

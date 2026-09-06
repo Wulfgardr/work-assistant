@@ -81,6 +81,21 @@ def create_server(
         """Controlla integrità SQLite e hash dei payload."""
         return client.call("verify")
 
+    @mcp.tool(name="mail_attachment_capabilities")
+    def mail_attachment_capabilities() -> dict[str, Any]:
+        """Riporta estrattori disponibili, stato OCR e limiti senza contenuti."""
+        return client.call("attachment_capabilities")
+
+    @mcp.tool(name="mail_attachment_text")
+    def mail_attachment_text(account: str, message_id: str, attachment_id: str) -> dict[str, Any]:
+        """Legge il testo derivato di un allegato. I byte originali non lasciano mai il broker."""
+        return client.call(
+            "attachment_text",
+            account=account,
+            message_id=message_id,
+            attachment_id=attachment_id,
+        )
+
     @mcp.tool(name="mail_privacy_status")
     def mail_privacy_status() -> dict[str, Any]:
         """Riporta modalità e numero di regole senza chiavi o alias in chiaro."""

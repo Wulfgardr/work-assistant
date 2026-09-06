@@ -40,8 +40,41 @@ def test_multi_account_sync_and_archive(tmp_path: Path) -> None:
 
 def test_archive_integrity_and_knowledge(tmp_path: Path) -> None:
     archive = LocalArchive(tmp_path / "archive.sqlite3")
-    assert archive.verify() == {"sqlite": "ok", "messages": 0, "hash_mismatches": 0}
+    assert archive.verify() == {
+        "sqlite": "ok",
+        "messages": 0,
+        "hash_mismatches": 0,
+        "attachment_texts": 0,
+        "orphaned_attachment_texts": 0,
+    }
     assert archive.build_knowledge_view()["message_count"] == 0
+
+
+def test_verify_reports_derived_attachment_cache(tmp_path: Path) -> None:
+    from work_assistant.models import Message
+
+    archive = LocalArchive(tmp_path / "archive.sqlite3")
+    archive.upsert(
+        [
+            Message(
+                id="m-1",
+                thread_id="m-1",
+                account="personal",
+                subject="Synthetic",
+                sender="sam@example.test",
+                recipients=("alex@example.test",),
+                sent_at="2026-09-05T10:00:00Z",
+                body_text="Synthetic body.",
+            )
+        ]
+    )
+    archive.store_attachment_text("personal", "m-1", "a-1", "sha", "builtin-text", "ok", "hi", False)
+    archive.store_attachment_text(
+        "personal", "missing", "a-9", "sha", "builtin-text", "ok", "stale", False
+    )
+    report = archive.verify()
+    assert report["attachment_texts"] == 2
+    assert report["orphaned_attachment_texts"] == 1
 
 
 def test_draft_candidate_is_local(tmp_path: Path) -> None:

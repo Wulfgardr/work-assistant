@@ -71,6 +71,22 @@ class LocalArchive:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS attachment_texts (
+                account TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                attachment_id TEXT NOT NULL,
+                source_sha256 TEXT NOT NULL,
+                extractor TEXT,
+                status TEXT NOT NULL,
+                text TEXT NOT NULL DEFAULT '',
+                truncated INTEGER NOT NULL DEFAULT 0,
+                extracted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (account, message_id, attachment_id)
+            )
+            """
+        )
 
     def upsert(self, messages: list[Message]) -> int:
         changed = 0
@@ -185,12 +201,85 @@ class LocalArchive:
             ).fetchone()
         return dict(row) if row else None
 
+    def store_attachment_text(
+        self,
+        account: str,
+        message_id: str,
+        attachment_id: str,
+        source_sha256: str,
+        extractor: str | None,
+        status: str,
+        text: str,
+        truncated: bool,
+    ) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO attachment_texts (
+                    account, message_id, attachment_id, source_sha256,
+                    extractor, status, text, truncated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(account, message_id, attachment_id) DO UPDATE SET
+                    source_sha256=excluded.source_sha256,
+                    extractor=excluded.extractor,
+                    status=excluded.status,
+                    text=excluded.text,
+                    truncated=excluded.truncated,
+                    extracted_at=CURRENT_TIMESTAMP
+                """,
+                (
+                    account,
+                    message_id,
+                    attachment_id,
+                    source_sha256,
+                    extractor,
+                    status,
+                    text,
+                    int(truncated),
+                ),
+            )
+
+    def get_attachment_text(
+        self, account: str, message_id: str, attachment_id: str
+    ) -> dict[str, object] | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT account, message_id, attachment_id, source_sha256, extractor,"
+                " status, text, truncated, extracted_at FROM attachment_texts"
+                " WHERE account = ? AND message_id = ? AND attachment_id = ?",
+                (account, message_id, attachment_id),
+            ).fetchone()
+        if row is None:
+            return None
+        record = dict(row)
+        record["truncated"] = bool(record["truncated"])
+        return record
+
     def verify(self) -> dict[str, object]:
         mismatches = 0
         with self.connect() as connection:
             integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
             rows = connection.execute("SELECT payload_json, payload_sha256 FROM messages").fetchall()
+            cached = connection.execute(
+                "SELECT account, message_id, attachment_id FROM attachment_texts"
+            ).fetchall()
+            orphaned = connection.execute(
+                """
+                SELECT COUNT(*) FROM attachment_texts AS cached
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM messages
+                    WHERE messages.account = cached.account
+                      AND messages.provider_id = cached.message_id
+                )
+                """
+            ).fetchone()[0]
         for row in rows:
             actual = hashlib.sha256(row["payload_json"].encode()).hexdigest()
             mismatches += int(actual != row["payload_sha256"])
-        return {"sqlite": integrity, "messages": len(rows), "hash_mismatches": mismatches}
+        return {
+            "sqlite": integrity,
+            "messages": len(rows),
+            "hash_mismatches": mismatches,
+            "attachment_texts": len(cached),
+            "orphaned_attachment_texts": int(orphaned),
+        }

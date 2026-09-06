@@ -8,8 +8,23 @@ from typing import Any
 from work_assistant.config import AppConfig
 
 
-SUPPORTED_ONBOARDING = {"demo", "zimbra"}
 ZIMBRA_COOKIE_NAMES = {"ZM_AUTH_TOKEN", "ZX_AUTH_TOKEN"}
+
+
+def _zimbra_family_plan(provider: str) -> dict[str, Any]:
+    return {
+        "provider": provider,
+        "adapter_status": "onboarding_ready_adapter_not_bundled",
+        "steps": [
+            {"actor": "agente", "action": "raccoglie solo host, nome account e indirizzo pubblico"},
+            {"actor": "persona", "action": "esegue login e 2FA nel browser"},
+            {"actor": "persona", "action": "esporta il file HAR senza inserirlo in chat"},
+            {"actor": "cli", "action": "estrae solo i cookie richiesti in un file locale riservato"},
+            {"actor": "agente", "action": "controlla lo stato senza leggere valori segreti"},
+            {"actor": "persona", "action": f"installa un adapter {provider} compatibile"},
+        ],
+        "secret_policy": "HAR, password, OTP e cookie restano locali e non entrano in MCP o nei prompt",
+    }
 
 
 def onboarding_plan(provider: str) -> dict[str, Any]:
@@ -26,19 +41,45 @@ def onboarding_plan(provider: str) -> dict[str, Any]:
             ],
             "secret_policy": "non servono segreti",
         }
-    if provider == "zimbra":
+    if provider == "maildir":
         return {
-            "provider": "zimbra",
+            "provider": "maildir",
+            "adapter_status": "available",
+            "steps": [
+                {"actor": "agente", "action": "spiega che serve una cartella Maildir locale (cur/new)"},
+                {"actor": "persona", "action": "indica il percorso della cartella locale senza inviare contenuti"},
+                {"actor": "cli", "action": "scrive la configurazione con il solo percorso locale"},
+                {"actor": "agente", "action": "sincronizza, elenca e controlla l'archivio"},
+            ],
+            "secret_policy": "non servono segreti; usa solo esportazioni locali, mai contenuti incollati in chat",
+        }
+    if provider in {"zimbra", "carbonio"}:
+        return _zimbra_family_plan(provider)
+    if provider == "imap":
+        return {
+            "provider": "imap",
+            "adapter_status": "available",
+            "steps": [
+                {"actor": "agente", "action": "raccoglie solo host, nome account e cartella"},
+                {"actor": "persona", "action": "crea una password per le app sul provider"},
+                {"actor": "persona", "action": "salva la password in un file locale con permessi 0600"},
+                {"actor": "cli", "action": "sincronizza solo via IMAP su TLS, senza mai stampare il segreto"},
+                {"actor": "agente", "action": "controlla lo stato senza leggere valori segreti"},
+            ],
+            "secret_policy": "la password resta nel file locale e non entra in MCP o nei prompt",
+        }
+    if provider == "graph":
+        return {
+            "provider": "graph",
             "adapter_status": "onboarding_ready_adapter_not_bundled",
             "steps": [
-                {"actor": "agente", "action": "raccoglie solo host, nome account e indirizzo pubblico"},
-                {"actor": "persona", "action": "esegue login e 2FA nel browser"},
-                {"actor": "persona", "action": "esporta il file HAR senza inserirlo in chat"},
-                {"actor": "cli", "action": "estrae solo i cookie richiesti in un file locale riservato"},
+                {"actor": "agente", "action": "raccoglie solo tenant, client id e nome account"},
+                {"actor": "persona", "action": "registra un'app con il solo permesso delegato Mail.Read"},
+                {"actor": "persona", "action": "installa il pacchetto separato work-assistant-graph"},
+                {"actor": "persona", "action": "esegue work-assistant-graph-login e approva nel browser"},
                 {"actor": "agente", "action": "controlla lo stato senza leggere valori segreti"},
-                {"actor": "persona", "action": "installa un adapter Zimbra compatibile"},
             ],
-            "secret_policy": "HAR, password, OTP e cookie restano locali e non entrano in MCP o nei prompt",
+            "secret_policy": "token e codici restano locali e non entrano in MCP o nei prompt",
         }
     return {
         "provider": provider,
@@ -52,6 +93,9 @@ def onboarding_plan(provider: str) -> dict[str, Any]:
 
 
 def onboarding_status(config: AppConfig) -> dict[str, Any]:
+    from work_assistant.service import available_providers
+
+    available = set(available_providers())
     accounts = []
     for account in config.accounts.values():
         session_path = config.data_dir / "secrets" / f"{account.name}.session.json"
@@ -61,7 +105,7 @@ def onboarding_status(config: AppConfig) -> dict[str, Any]:
                 "provider": account.provider,
                 "address": account.address,
                 "session_material_present": session_path.is_file(),
-                "adapter_available": account.provider == "demo",
+                "adapter_available": account.provider in available,
             }
         )
     return {"schema_version": 1, "accounts": accounts}

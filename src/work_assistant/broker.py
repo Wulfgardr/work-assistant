@@ -137,6 +137,42 @@ class SafeBroker:
             return {**view, "contacts": contacts, "privacy_mode": self.config.privacy.mode}
         if operation == "verify":
             return self.app.archive.verify()
+        if operation == "attachment_capabilities":
+            return self.app.attachment_capabilities()
+        if operation == "attachment_text":
+            account = str(args["account"])
+            message_id = self.privacy.restore_reference(str(args["message_id"]))
+            attachment_id = self.privacy.restore_reference(str(args["attachment_id"]))
+            result = dict(
+                self.app.attachment_text(account, message_id, attachment_id)
+            )
+            refs = {
+                "message_ref": self.privacy.protect_reference("MESSAGE_ID", message_id),
+                "attachment_ref": self.privacy.protect_reference(
+                    "ATTACHMENT_ID", attachment_id
+                ),
+            }
+            if result.get("status") != "ok":
+                return {**result, **refs}
+            message = self.app.archive.get_message(account, message_id)
+            sender = str((message or {}).get("sender") or "")
+            decision = self.privacy.policy.decide(sender)
+            protect_all = decision.action == "pseudonymize"
+            return {
+                **result,
+                **refs,
+                "text": self.privacy.protect_text(
+                    str(result.get("text") or ""), global_only=not protect_all
+                ),
+                "_privacy": {
+                    "mode": self.config.privacy.mode,
+                    "action": decision.action,
+                    "matched_rule_id": decision.matched_rule_id,
+                    "pseudonymization_is_not_anonymization": True,
+                    "ocr_text_may_contain_recognition_errors": result.get("extractor")
+                    == "tesseract-ocr",
+                },
+            }
         if operation == "privacy_status":
             return self.privacy.status()
         raise BrokerError("unsupported broker operation")

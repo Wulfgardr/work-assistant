@@ -16,6 +16,22 @@ default_action = "pseudonymize"
 #pattern = "newsletter@example.test"
 #action = "allow_raw"
 
+[attachments]
+# enabled = false disabilita l'estrazione del testo derivato dagli allegati.
+# I byte originali restano dal provider: solo il testo derivato viene
+# conservato in cache e, verso gli agenti, pseudonimizzato.
+# enabled = true
+# Testo massimo conservato e restituito per allegato, in caratteri.
+# max_text_chars = 20000
+# Limite locale dei byte letti per allegato.
+# max_bytes = 33554432
+# ocr_mode = "auto" usa il binario tesseract locale se presente; "off" lo disabilita.
+# ocr_mode = "auto"
+# ocr_languages = "auto" sceglie ita+eng quando disponibili, altrimenti eng.
+# ocr_languages = "auto"
+# Pagine massime rese dal renderer PDF locale prima dell'OCR.
+# ocr_max_pages = 10
+
 [accounts.personal]
 provider = "demo"
 source = "./examples/demo-mailbox.jsonl"
@@ -32,3 +48,19 @@ address = "team@example.test"
 # provider = "zimbra"
 # host = "mail.example.test"
 # address = "alex@example.test"
+
+# Esempio per un account IMAP generico (solo TLS). La password per le app
+# vive nel secret_file (prima riga, permessi 0600), mai nel TOML.
+# [accounts.office]
+# provider = "imap"
+# host = "imap.example.test"
+# address = "alex@example.test"
+# secret_file = "/secure/path/office.imap.secret"
+
+# Esempio per Exchange Online con l'adapter sperimentale work-assistant-graph.
+# [accounts.m365]
+# provider = "graph"
+# address = "alex@example.test"
+# client_id = "00000000-0000-0000-0000-000000000000"
+# tenant = "common"
+# token_file = "/secure/path/m365.graph.token.json"

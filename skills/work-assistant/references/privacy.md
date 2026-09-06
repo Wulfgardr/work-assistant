@@ -9,5 +9,7 @@ Leggi questa procedura prima di usare contenuti email con un agente.
 5. Crea candidati di risposta con gli alias restituiti. Il broker ripristina quelli conosciuti e rifiuta gli altri.
 6. Usa `mail_local_artifact` per analisi o note che devono essere ripristinate localmente. Lo strumento restituisce solo un ID opaco.
 7. Un agente cloud non deve usare i comandi CLI in chiaro né leggere direttamente SQLite.
+8. Per gli allegati usa `mail_attachment_text`: il testo derivato segue le stesse regole di pseudonimizzazione del corpo. I byte originali non sono mai esposti.
+9. Un servizio OCR ospitato è fuori ambito: invierebbe contenuti a terzi. Vale solo l'OCR locale dichiarato da `mail_attachment_capabilities`.
 
 La pseudonimizzazione riduce l'esposizione degli identificativi diretti. Non garantisce anonimato e non elimina il contesto identificativo dal testo non riconosciuto.

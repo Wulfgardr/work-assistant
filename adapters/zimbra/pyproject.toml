@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "work-assistant-zimbra"
+version = "0.1.0"
+description = "Experimental read-only Zimbra/Carbonio adapter for Work Assistant."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Work Assistant contributors" }]
+keywords = ["email", "zimbra", "carbonio", "soap", "work-assistant"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = ["work-assistant>=0.4"]
+
+[project.entry-points."work_assistant.providers"]
+zimbra = "work_assistant_zimbra.provider:zimbra_provider"
+carbonio = "work_assistant_zimbra.provider:zimbra_provider"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
