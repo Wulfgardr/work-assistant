@@ -93,7 +93,12 @@ class SafeBroker:
         if operation == "sync":
             return self.app.sync(str(args["account"]))
         if operation == "list":
-            rows = self.app.archive.list_messages(args.get("account"), int(args.get("limit", 20)))
+            try:
+                limit = int(args.get("limit", 20))
+            except (TypeError, ValueError):
+                limit = 20
+            limit = max(1, min(limit, 100))
+            rows = self.app.archive.list_messages(args.get("account"), limit)
             return [self.privacy.protect_summary(row) for row in rows]
         if operation == "get":
             message_id = self.privacy.restore_reference(str(args["message_id"]))
@@ -194,6 +199,9 @@ def _handle_connection(connection: Connection, broker: SafeBroker) -> None:
         except (BrokerError, PrivacyError, KeyError, TypeError, ValueError) as exc:
             response = {"ok": False, "error": type(exc).__name__, "message": str(exc)}
         except Exception:
+            import traceback
+
+            traceback.print_exc()
             response = {"ok": False, "error": "internal_error", "message": "broker operation failed"}
         encoded = json.dumps(response, ensure_ascii=False).encode()
         if len(encoded) > MAX_RESPONSE_BYTES:
@@ -261,6 +269,10 @@ def _load_or_create_auth_key(path: Path) -> bytes:
             os.write(descriptor, secrets.token_hex(32).encode() + b"\n")
         finally:
             os.close(descriptor)
+    elif os.name != "nt" and not path.is_symlink() and path.is_file():
+        stat = path.stat()
+        if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+            raise BrokerError("broker authentication key must be owner-only (0600)")
     key = path.read_bytes().strip()
     if len(key) < 32:
         raise BrokerError("broker authentication key is invalid")
@@ -279,16 +291,25 @@ def run_broker(
     auth_key = _load_or_create_auth_key(auth_path)
     socket_path = Path(endpoint) if os.name != "nt" else None
     if socket_path is not None:
-        parent_existed = socket_path.parent.exists()
         socket_path.parent.mkdir(parents=True, exist_ok=True)
-        if not parent_existed:
+        if os.name != "nt":
+            # Fail closed on pre-created hijack dirs in /tmp: must be owned + 0700.
+            try:
+                stat = socket_path.parent.stat()
+                if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+                    raise BrokerError("broker socket directory must be owner-only (0700)")
+            except FileNotFoundError:
+                pass
             os.chmod(socket_path.parent, 0o700)
     client = BrokerClient(endpoint, auth_path, timeout=0.2)
     if socket_path is not None and socket_path.exists():
         try:
             client.call("privacy_status")
-        except Exception:
-            socket_path.unlink()
+        except BrokerError:
+            try:
+                socket_path.unlink()
+            except OSError:
+                pass
         else:
             raise BrokerError("a broker is already running on this endpoint")
     family = "AF_PIPE" if os.name == "nt" else "AF_UNIX"

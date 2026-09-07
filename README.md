@@ -6,7 +6,7 @@
 **La posta diventa un archivio locale utilizzabile da una persona o da un agente intelligente.**
 
 <a href="https://openai.com/codex"><img src="https://img.shields.io/badge/built%20with-Codex-1f2937?style=flat" alt="Built with Codex"></a>
-[![Versione](https://img.shields.io/badge/versione-0.6.0-33506b?style=flat)](#stato-del-progetto)
+[![Versione](https://img.shields.io/badge/versione-0.7.0-33506b?style=flat)](#stato-del-progetto)
 [![Licenza](https://img.shields.io/badge/license-MIT-2ea043?style=flat)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white)](#prova-la-demo)
 [![Local-first](https://img.shields.io/badge/data-local--first-8957e5?style=flat)](#come-protegge-i-dati)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone
+import urllib.parse
 
 from work_assistant.attachments import AttachmentNotAvailable, HtmlExtractor
 from work_assistant.models import Attachment, Message
@@ -77,8 +78,9 @@ class GraphProvider:
 
     def _attachments(self, message_id: str) -> tuple[Attachment, ...]:
         try:
+            safe_id = urllib.parse.quote(message_id, safe="")
             body = self.client.get(
-                f"/v1.0/me/messages/{message_id}/attachments", {"$select": ATTACHMENT_SELECT}
+                f"/v1.0/me/messages/{safe_id}/attachments", {"$select": ATTACHMENT_SELECT}
             )
         except GraphError:
             return ()
@@ -152,9 +154,10 @@ class GraphProvider:
         recipients = [{"emailAddress": {"address": address}} for address in to]
         try:
             if in_reply_to:
-                if ".." in in_reply_to or "/" in in_reply_to:
+                if ".." in in_reply_to or any(c in in_reply_to for c in "/?#"):
                     raise GraphError("invalid graph message reference")
-                created = self.client.post(f"/v1.0/me/messages/{in_reply_to}/createReply", {})
+                safe_reply = urllib.parse.quote(in_reply_to, safe="")
+                created = self.client.post(f"/v1.0/me/messages/{safe_reply}/createReply", {})
                 draft_id = str(created.get("id") or "")
                 if not draft_id:
                     raise GraphError("graph did not return a draft id")
@@ -188,10 +191,17 @@ class GraphProvider:
             raise GraphError(f"graph draft failed: {exc}") from exc
 
     def fetch_attachment_bytes(self, message_id: str, attachment_id: str) -> bytes:
-        if not message_id or not attachment_id or ".." in attachment_id or "/" in attachment_id:
+        if (
+            not message_id
+            or not attachment_id
+            or ".." in message_id + attachment_id
+            or any(c in message_id + attachment_id for c in "/?#")
+        ):
             raise AttachmentNotAvailable("invalid graph attachment reference")
         try:
-            item = self.client.get(f"/v1.0/me/messages/{message_id}/attachments/{attachment_id}")
+            safe_message = urllib.parse.quote(message_id, safe="")
+            safe_attachment = urllib.parse.quote(attachment_id, safe="")
+            item = self.client.get(f"/v1.0/me/messages/{safe_message}/attachments/{safe_attachment}")
         except GraphError as exc:
             raise AttachmentNotAvailable(f"graph attachment is unavailable: {exc}") from exc
         kind = str(item.get("@odata.type") or "")

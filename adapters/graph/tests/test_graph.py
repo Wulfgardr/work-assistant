@@ -129,7 +129,7 @@ def test_list_maps_graph_message_and_expands_attachments(tmp_path: Path) -> None
     auth = _auth(tmp_path, [])
     transport = FakeJson(
         [
-            (200, {"value": [MESSAGE], "@odata.nextLink": "https://graph.example.test/next"}),
+            (200, {"value": [MESSAGE], "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages?$skip=50"}),
             (200, {"value": []}),
             (200, ATTACHMENTS),
         ]
@@ -193,6 +193,15 @@ def test_graph_errors_stay_explicit(tmp_path: Path) -> None:
     client = GraphClient(auth, FakeJson([(429, {}, {}), (429, {}, {}), (429, {}, {})]), sleeper=lambda seconds: None)
     with pytest.raises(GraphError, match="throttled"):
         client.get("/v1.0/me/messages")
+
+
+def test_next_link_off_host_is_refused(tmp_path: Path) -> None:
+    store = TokenStore(tmp_path / "graph.token.json")
+    store.save({"access_token": "a", "refresh_token": "r", "expires_at": 9**18})
+    auth = _auth(tmp_path, [])
+    client = GraphClient(auth, FakeJson([(200, {"value": []})]))
+    with pytest.raises(GraphError, match="off the Graph host"):
+        client.get_url("https://evil.example.test/next")
 
 
 def test_client_honors_retry_after_then_succeeds(tmp_path: Path) -> None:

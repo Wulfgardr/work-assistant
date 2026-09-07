@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from http.cookies import SimpleCookie
 import json
+import os
 from pathlib import Path
+import re
 from typing import Any
 
 from work_assistant.config import AppConfig
+
+ACCOUNT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
+MAX_HAR_BYTES = 32 * 1024 * 1024
 
 
 ZIMBRA_COOKIE_NAMES = {"ZM_AUTH_TOKEN", "ZX_AUTH_TOKEN"}
@@ -140,10 +145,14 @@ def _entry_cookies(entry: dict[str, Any]) -> dict[str, str]:
 
 
 def import_zimbra_har(config: AppConfig, account_name: str, har_path: str | Path) -> dict[str, Any]:
+    if not ACCOUNT_RE.match(account_name):
+        raise ValueError("invalid account name")
     account = config.accounts[account_name]
     if account.provider not in {"zimbra", "carbonio"}:
         raise ValueError("HAR session import is available only for zimbra or carbonio accounts")
     source = Path(har_path).expanduser().resolve()
+    if source.is_file() and source.stat().st_size > MAX_HAR_BYTES:
+        raise ValueError("HAR file is too large; export a smaller session")
     raw = json.loads(source.read_text(encoding="utf-8"))
     entries = raw.get("log", {}).get("entries", []) or []
     cookies: dict[str, str] = {}
@@ -158,7 +167,7 @@ def import_zimbra_har(config: AppConfig, account_name: str, har_path: str | Path
         raise ValueError("the HAR does not contain the required Zimbra session cookie")
     destination = config.data_dir / "secrets" / f"{account_name}.session.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
+    payload = (
         json.dumps(
             {
                 "schema_version": 1,
@@ -168,10 +177,19 @@ def import_zimbra_har(config: AppConfig, account_name: str, har_path: str | Path
             },
             indent=2,
         )
-        + "\n",
-        encoding="utf-8",
-    )
-    destination.chmod(0o600)
+        + "\n"
+    ).encode()
+    # Atomic owner-only write: no world-readable window (no write_text+chmod).
+    tmp = destination.with_name(f".{destination.name}.tmp")
+    descriptor = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(descriptor, payload)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    os.replace(tmp, destination)
+    if os.name != "nt":
+        os.chmod(destination, 0o600)
     return {
         "account": account_name,
         "stored": True,

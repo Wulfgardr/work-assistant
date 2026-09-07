@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from work_assistant.archive import LocalArchive
 from work_assistant.config import AppConfig
+from work_assistant._fs import owner_write as _owner_write
 
 BACKUP_SCHEMA = 1
 KDF_ITERATIONS = 600_000
@@ -37,18 +38,6 @@ def _fernet(passphrase: bytes, salt: bytes) -> Fernet:
     from base64 import urlsafe_b64encode
 
     return Fernet(urlsafe_b64encode(key))
-
-
-def _owner_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    try:
-        os.write(descriptor, data)
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-    if os.name != "nt":
-        os.chmod(path, 0o600)
 
 
 def create_backup(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import urllib.parse
 import xml.etree.ElementTree as ET
 
 from work_assistant.attachments import AttachmentNotAvailable
@@ -11,6 +12,7 @@ from work_assistant_zimbra.soap import (
     UrllibTransport,
     ZimbraError,
     ZimbraTransportError,
+    _local,
     get_msg_request,
     load_session_cookies,
     save_draft_request,
@@ -20,10 +22,6 @@ from work_assistant_zimbra.soap import (
 QUERY = "in:inbox"
 PAGE_LIMIT = 100
 MAX_PAGES = 10
-
-
-def _local(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
 
 
 def _children(element: ET.Element, tag: str) -> list[ET.Element]:
@@ -202,11 +200,19 @@ class ZimbraProvider:
         return draft_id
 
     def fetch_attachment_bytes(self, message_id: str, attachment_id: str) -> bytes:
-        if not message_id or not attachment_id or ".." in attachment_id or "/" in attachment_id:
+        if (
+            not message_id
+            or not attachment_id
+            or ".." in message_id
+            or ".." in attachment_id
+            or any(c in message_id + attachment_id for c in "/&?#")
+        ):
             raise AttachmentNotAvailable("invalid zimbra attachment reference")
         try:
+            safe_message = urllib.parse.quote(message_id, safe="")
+            safe_part = urllib.parse.quote(attachment_id, safe="")
             return self.client.download(
-                f"/service/home/~/?id={message_id}&part={attachment_id}"
+                f"/service/home/~/?id={safe_message}&part={safe_part}"
             )
         except ZimbraTransportError as exc:
             raise AttachmentNotAvailable(str(exc)) from exc

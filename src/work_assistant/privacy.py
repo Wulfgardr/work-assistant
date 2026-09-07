@@ -127,15 +127,23 @@ def _windows_acl_is_private(path: Path) -> bool:
 
 
 def _assert_private_registry(path: Path) -> None:
+    _assert_private_path(path, "privacy entity registry")
+
+
+def _assert_private_registry_like(path: Path) -> None:
+    _assert_private_path(path, "privacy key")
+
+
+def _assert_private_path(path: Path, what: str) -> None:
     if not path.is_file() or path.is_symlink():
-        raise PrivacyError("privacy entity registry must be a regular file")
+        raise PrivacyError(f"{what} must be a regular file")
     if os.name == "nt":
         if not _windows_acl_is_private(path):
-            raise PrivacyError("privacy entity registry ACL grants access to a broad Windows group")
+            raise PrivacyError(f"{what} ACL grants access to a broad Windows group")
         return
     stat = path.stat()
     if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
-        raise PrivacyError("privacy entity registry must be owner-only (0600)")
+        raise PrivacyError(f"{what} must be owner-only (0600)")
 
 
 @dataclass(frozen=True)
@@ -184,6 +192,9 @@ class AliasVault:
     def _load_or_create_key(self) -> bytes:
         if not self.key_path.exists():
             self._owner_write(self.key_path, urlsafe_b64encode(os.urandom(32)) + b"\n")
+        else:
+            # Re-verify on every load: a later chmod 644 would de-pseudonymize everything.
+            _assert_private_registry_like(self.key_path)
         encoded = self.key_path.read_bytes().strip()
         key = urlsafe_b64decode(encoded)
         if len(key) != 32:

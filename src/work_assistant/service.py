@@ -203,7 +203,9 @@ class WorkAssistant:
                 "source_sha256": digest,
             }
         limits, ocr_mode = self._attachment_pipeline()
-        [record] = [item for item in message["attachments"] if str(item.get("id")) == attachment_id]
+        record = next(
+            item for item in message["attachments"] if str(item.get("id")) == attachment_id
+        )
         result = extract_attachment_text(
             data,
             filename=str(record.get("filename") or ""),

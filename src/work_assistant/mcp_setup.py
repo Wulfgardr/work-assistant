@@ -23,12 +23,16 @@ def server_command(broker_address: str, broker_auth_file: str) -> list[str]:
     ]
 
 
+def _mcp_add_cmd(binary: str, command: list[str]) -> list[str]:
+    return [binary, "mcp", "add", "work-assistant", "--", *command]
+
+
 def codex_command(command: list[str]) -> list[str]:
-    return ["codex", "mcp", "add", "work-assistant", "--", *command]
+    return _mcp_add_cmd("codex", command)
 
 
 def claude_command(command: list[str]) -> list[str]:
-    return ["claude", "mcp", "add", "work-assistant", "--", *command]
+    return _mcp_add_cmd("claude", command)
 
 
 def desktop_snippet(command: list[str]) -> str:

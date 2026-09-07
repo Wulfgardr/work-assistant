@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from work_assistant.benchmark import benchmark_privacy
+from work_assistant.backup import BackupError
 from work_assistant.broker import default_auth_path, default_broker_address, run_broker
 from work_assistant.config import default_data_dir, load_config
 from work_assistant.onboarding import import_zimbra_har, onboarding_plan, onboarding_status
@@ -14,6 +15,18 @@ from work_assistant.service import WorkAssistant
 
 def _emit(value: object) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _add_draft_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--account", required=True)
+    parser.add_argument("--to", action="append", required=True)
+    parser.add_argument("--subject", required=True)
+    parser.add_argument("--body-file", required=True)
+    parser.add_argument("--in-reply-to")
+
+
+def _read_body_file(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,19 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
     artifact = sub.add_parser("artifact-show", help="mostra un artefatto locale in chiaro")
     artifact.add_argument("--id", type=int, required=True)
     draft = sub.add_parser("draft-candidate", help="salva un candidato locale senza inviare")
-    draft.add_argument("--account", required=True)
-    draft.add_argument("--to", action="append", required=True)
-    draft.add_argument("--subject", required=True)
-    draft.add_argument("--body-file", required=True)
-    draft.add_argument("--in-reply-to")
+    _add_draft_args(draft)
     provider_draft = sub.add_parser(
         "draft-on-provider", help="salva una bozza sul provider senza inviare (solo persona)"
     )
-    provider_draft.add_argument("--account", required=True)
-    provider_draft.add_argument("--to", action="append", required=True)
-    provider_draft.add_argument("--subject", required=True)
-    provider_draft.add_argument("--body-file", required=True)
-    provider_draft.add_argument("--in-reply-to")
+    _add_draft_args(provider_draft)
     sub.add_parser("knowledge", help="ricostruisce la vista di conoscenza locale")
     sub.add_parser("verify", help="controlla archivio, hash e cache derivata")
     backup = sub.add_parser("backup", help="esporta l'archivio cifrato con manifesto di hash")
@@ -160,13 +165,13 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("artifact not found")
         _emit(artifact)
     elif args.command == "draft-candidate":
-        body = Path(args.body_file).read_text(encoding="utf-8")
+        body = _read_body_file(args.body_file)
         draft_id = app.archive.create_draft_candidate(
             args.account, args.to, args.subject, body, args.in_reply_to
         )
         _emit({"draft_candidate_id": draft_id, "status": "local_candidate", "sent": False})
     elif args.command == "draft-on-provider":
-        body = Path(args.body_file).read_text(encoding="utf-8")
+        body = _read_body_file(args.body_file)
         try:
             _emit(
                 app.save_provider_draft(args.account, args.to, args.subject, body, args.in_reply_to)
@@ -174,29 +179,30 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             raise SystemExit(f"provider draft failed: {exc}") from exc
     elif args.command == "knowledge":
+        from work_assistant._fs import owner_write
+
         view = app.archive.build_knowledge_view()
         target = app.config.data_dir / "knowledge.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(view, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        owner_write(target, (json.dumps(view, ensure_ascii=False, indent=2) + "\n").encode())
         _emit({"path": str(target), **view})
     elif args.command == "verify":
         _emit(app.archive.verify())
     elif args.command == "backup":
-        from work_assistant.backup import BackupError, create_backup
+        from work_assistant.backup import create_backup
 
         try:
             _emit(create_backup(app.config, args.out, passphrase_env=args.passphrase_env))
         except BackupError as exc:
             raise SystemExit(f"backup failed: {exc}") from exc
     elif args.command == "restore":
-        from work_assistant.backup import BackupError, restore_backup
+        from work_assistant.backup import restore_backup
 
         try:
             _emit(restore_backup(args.backup_dir, args.data_dir, passphrase_env=args.passphrase_env))
         except BackupError as exc:
             raise SystemExit(f"restore failed: {exc}") from exc
     elif args.command == "backup-verify":
-        from work_assistant.backup import BackupError, verify_backup
+        from work_assistant.backup import verify_backup
 
         try:
             _emit(verify_backup(args.backup_dir, passphrase_env=args.passphrase_env))

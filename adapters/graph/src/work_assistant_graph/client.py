@@ -130,6 +130,15 @@ class GraphClient:
         return self._mutate("PATCH", path, payload)
 
     def get_url(self, url: str) -> dict:
+        # SSRF guard: nextLink is server-controlled; only follow same-host Graph URLs
+        # and never send the Bearer token to another host.
+        base_host = urllib.parse.urlparse(GRAPH_BASE).netloc.lower()
+        try:
+            host = (urllib.parse.urlparse(url).netloc or "").lower()
+        except ValueError as exc:
+            raise GraphError(f"invalid graph next link: {exc}") from exc
+        if host != base_host or not url.startswith("https://"):
+            raise GraphError("refusing to follow a graph next link off the Graph host")
         status, body = self._get(url, self.auth.access_token())
         if status != 200:
             raise GraphError(f"graph request failed: HTTP {status}")

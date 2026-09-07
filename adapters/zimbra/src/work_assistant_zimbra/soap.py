@@ -41,7 +41,19 @@ def load_session_cookies(session_file: str | Path) -> dict[str, str]:
 
     Only cookie names and values are read; the HAR itself is never required.
     """
-    raw = json.loads(Path(session_file).expanduser().read_text(encoding="utf-8"))
+    import os
+
+    path = Path(session_file).expanduser()
+    if path.is_symlink():
+        raise ZimbraError("session file must be a regular file")
+    if os.name != "nt" and path.is_file():
+        try:
+            stat = path.stat()
+            if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+                raise ZimbraError("session file must be owner-only (0600)")
+        except OSError as exc:
+            raise ZimbraError(f"session file is unreadable: {exc}") from exc
+    raw = json.loads(path.read_text(encoding="utf-8"))
     cookies = raw.get("cookies", {}) if isinstance(raw, dict) else {}
     selected = {
         name: str(value)

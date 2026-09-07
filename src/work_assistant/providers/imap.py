@@ -5,10 +5,10 @@ from email.message import EmailMessage
 from email.utils import formatdate
 import imaplib
 import os
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
-from collections.abc import Callable
 
 from work_assistant.attachments import AttachmentNotAvailable
 from work_assistant.models import Message
@@ -26,7 +26,7 @@ def read_secret(secret_file: str | Path, account: str) -> str:
         first = path.read_text(encoding="utf-8").splitlines()[0].strip() if path.is_file() else ""
     except OSError as exc:
         raise ImapError(f"account {account!r} cannot read secret_file: {exc}") from exc
-    if not path.is_file() or not first:
+    if not path.is_file() or path.is_symlink() or not first:
         raise ImapError(
             f"account {account!r} needs a secret_file holding the app password on its first line"
         )
@@ -35,6 +35,14 @@ def read_secret(secret_file: str | Path, account: str) -> str:
         if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
             raise ImapError("imap secret_file must be owner-only (0600)")
     return first
+
+
+def _check_folder(value: str, what: str) -> str:
+    if not value or len(value) > 64 or "\r" in value or "\n" in value or '"' in value:
+        raise ImapError(f"imap {what} has an invalid name")
+    if not re.match(r"^[\w.\- /]+$", value):
+        raise ImapError(f"imap {what} has an invalid name")
+    return value
 
 
 def since_to_imap_date(since: str) -> str:
@@ -94,8 +102,8 @@ class ImapProvider:
         self.secret = read_secret(secret_file, account)
         self.username = username or account
         self.port = port
-        self.folder = folder
-        self.drafts_folder = drafts_folder
+        self.folder = _check_folder(folder, "folder")
+        self.drafts_folder = _check_folder(drafts_folder, "drafts_folder")
         self.max_messages = max(1, max_messages)
         self.timeout = timeout
         self._factory = client_factory or (lambda: imaplib.IMAP4_SSL(host, port, timeout=timeout))
