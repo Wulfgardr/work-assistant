@@ -528,11 +528,6 @@ def extract_attachment_text(
         return ExtractionResult(
             status="ocr_not_configured", detail="OCR is disabled by configuration"
         )
-    if any(isinstance(item, AnyDocExtractor) for item in _EXTRACTORS):
-        return ExtractionResult(
-            status="ocr_unavailable",
-            detail="no text layer and no local OCR extractor is available",
-        )
     return ExtractionResult(
         status="unsupported", detail="no registered extractor supports this attachment"
     )

@@ -1,6 +1,6 @@
 # work-assistant-graph
 
-Experimental **read-only** Microsoft Graph adapter for Work Assistant (Exchange Online / M365 mail). Delegated `Mail.Read` only, via OAuth2 device code flow: no passwords, no client secrets, no shared credentials.
+Experimental Microsoft Graph adapter for Work Assistant (Exchange Online / M365 mail): read plus provider drafts, never sends. Delegated `Mail.Read` only, via OAuth2 device code flow: no passwords, no client secrets, no shared credentials.
 
 ## Install
 
@@ -41,10 +41,14 @@ The command prints only the server-provided verification URI and user code. The 
 
 ## Boundaries
 
-- Read-only: `save_draft` refuses; sync never marks messages as read.
+- Read plus drafts, never sends: `save_draft` creates drafts (standalone or reply); sync never marks messages as read.
 - Only `fileAttachment` parts expose bytes; nested or reference attachments stay metadata-only.
 - Attachment bytes are returned to the core only; derived pseudonymized text is what crosses the broker.
 - A dedicated security review is still required before production use (see `docs/security/DAYBREAK-REVIEW.md` in the core repository).
+
+## Real-server validation
+
+Follow [`../VALIDATION.md`](../VALIDATION.md) with a dedicated synthetic test account before trusting any sync.
 
 ## Develop
 

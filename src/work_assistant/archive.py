@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
 from contextlib import contextmanager
 import hashlib
 import json
@@ -87,6 +86,10 @@ class LocalArchive:
             )
             """
         )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_messages_account_sent"
+            " ON messages(account, sent_at DESC)"
+        )
 
     def upsert(self, messages: list[Message]) -> int:
         changed = 0
@@ -127,6 +130,11 @@ class LocalArchive:
         return changed
 
     def list_messages(self, account: str | None = None, limit: int = 20) -> list[dict[str, object]]:
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            limit = 20
+        limit = max(1, min(limit, 100))
         query = (
             "SELECT account, provider_id, thread_id, sent_at, folder, sender, subject, payload_json "
             "FROM messages"
@@ -169,18 +177,20 @@ class LocalArchive:
 
     def build_knowledge_view(self) -> dict[str, object]:
         with self.connect() as connection:
-            rows = connection.execute("SELECT account, sender, payload_json FROM messages").fetchall()
-        contacts: Counter[tuple[str, str]] = Counter()
-        for row in rows:
-            contacts[(row["account"], row["sender"])] += 1
+            total = connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+            grouped = connection.execute(
+                "SELECT account, sender, COUNT(*) AS n FROM messages"
+                " GROUP BY account, sender ORDER BY n DESC, account, sender"
+            ).fetchall()
+        contacts = [
+            {"account": row["account"], "address": row["sender"], "message_count": int(row["n"])}
+            for row in grouped
+        ]
         return {
             "schema_version": 1,
             "derived_from": "local_archive",
-            "message_count": len(rows),
-            "contacts": [
-                {"account": account, "address": address, "message_count": count}
-                for (account, address), count in sorted(contacts.items(), key=lambda item: (-item[1], item[0]))
-            ],
+            "message_count": int(total),
+            "contacts": contacts,
         }
 
     def create_local_artifact(self, kind: str, title: str, body: str) -> int:
@@ -257,12 +267,16 @@ class LocalArchive:
 
     def verify(self) -> dict[str, object]:
         mismatches = 0
+        message_count = 0
         with self.connect() as connection:
             integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-            rows = connection.execute("SELECT payload_json, payload_sha256 FROM messages").fetchall()
+            for row in connection.execute("SELECT payload_json, payload_sha256 FROM messages"):
+                message_count += 1
+                actual = hashlib.sha256(row["payload_json"].encode()).hexdigest()
+                mismatches += int(actual != row["payload_sha256"])
             cached = connection.execute(
-                "SELECT account, message_id, attachment_id FROM attachment_texts"
-            ).fetchall()
+                "SELECT COUNT(*) FROM attachment_texts"
+            ).fetchone()[0]
             orphaned = connection.execute(
                 """
                 SELECT COUNT(*) FROM attachment_texts AS cached
@@ -273,13 +287,10 @@ class LocalArchive:
                 )
                 """
             ).fetchone()[0]
-        for row in rows:
-            actual = hashlib.sha256(row["payload_json"].encode()).hexdigest()
-            mismatches += int(actual != row["payload_sha256"])
         return {
             "sqlite": integrity,
-            "messages": len(rows),
+            "messages": message_count,
             "hash_mismatches": mismatches,
-            "attachment_texts": len(cached),
+            "attachment_texts": int(cached),
             "orphaned_attachment_texts": int(orphaned),
         }

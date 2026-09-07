@@ -55,14 +55,19 @@ class FakeForms:
 
 
 class FakeJson:
-    def __init__(self, script: list[tuple[int, dict]]):
+    def __init__(self, script: list):
         self.script = list(script)
         self.calls: list[tuple[str, str, dict[str, str]]] = []
 
     def request(self, method: str, url: str, headers: dict[str, str], body=None):
         self.calls.append((method, url, headers))
-        status, payload = self.script.pop(0)
-        return status, json.dumps(payload).encode()
+        entry = self.script.pop(0)
+        if len(entry) == 3:
+            status, response_headers, payload = entry
+        else:
+            status, payload = entry
+            response_headers = {}
+        return status, response_headers, json.dumps(payload).encode()
 
 
 def _auth(tmp_path: Path, script: list[dict], **overrides) -> DeviceFlow:
@@ -124,7 +129,7 @@ def test_list_maps_graph_message_and_expands_attachments(tmp_path: Path) -> None
     auth = _auth(tmp_path, [])
     transport = FakeJson(
         [
-            (200, {"value": [MESSAGE], "@odata.nextLink": "https://graph.example.test/next"}),
+            (200, {"value": [MESSAGE], "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/messages?$skip=50"}),
             (200, {"value": []}),
             (200, ATTACHMENTS),
         ]
@@ -162,8 +167,6 @@ def test_fetch_decodes_file_attachments_only(tmp_path: Path) -> None:
         nested.fetch_attachment_bytes("g-1", "n-1")
     with pytest.raises(AttachmentNotAvailable, match="invalid graph"):
         nested.fetch_attachment_bytes("g-1", "../x")
-    with pytest.raises(RuntimeError, match="read-only"):
-        nested.save_draft(to=["a@example.test"], subject="s", body="b")
 
 
 def test_graph_rejects_bad_options_and_hosts() -> None:
@@ -187,6 +190,72 @@ def test_graph_errors_stay_explicit(tmp_path: Path) -> None:
     store = TokenStore(tmp_path / "graph.token.json")
     store.save({"access_token": "a", "refresh_token": "r", "expires_at": 9**18})
     auth = _auth(tmp_path, [])
-    client = GraphClient(auth, FakeJson([(429, {})]))
+    client = GraphClient(auth, FakeJson([(429, {}, {}), (429, {}, {}), (429, {}, {})]), sleeper=lambda seconds: None)
     with pytest.raises(GraphError, match="throttled"):
         client.get("/v1.0/me/messages")
+
+
+def test_next_link_off_host_is_refused(tmp_path: Path) -> None:
+    store = TokenStore(tmp_path / "graph.token.json")
+    store.save({"access_token": "a", "refresh_token": "r", "expires_at": 9**18})
+    auth = _auth(tmp_path, [])
+    client = GraphClient(auth, FakeJson([(200, {"value": []})]))
+    with pytest.raises(GraphError, match="off the Graph host"):
+        client.get_url("https://evil.example.test/next")
+
+
+def test_client_honors_retry_after_then_succeeds(tmp_path: Path) -> None:
+    store = TokenStore(tmp_path / "graph.token.json")
+    store.save({"access_token": "a", "refresh_token": "r", "expires_at": 9**18})
+    auth = _auth(tmp_path, [])
+    waits: list[float] = []
+    client = GraphClient(
+        auth, FakeJson([(429, {"Retry-After": "2"}, {}), (200, {}, {"value": []})]), sleeper=waits.append
+    )
+    assert client.get("/v1.0/me/messages") == {"value": []}
+    assert waits == [2.0]
+
+
+def _draft_auth(tmp_path: Path) -> DeviceFlow:
+    store = TokenStore(tmp_path / "graph.token.json")
+    store.save({"access_token": "a", "refresh_token": "r", "expires_at": 9**18})
+    return _auth(tmp_path, [])
+
+
+def test_save_draft_creates_and_verifies(tmp_path: Path) -> None:
+    auth = _draft_auth(tmp_path)
+    transport = FakeJson(
+        [
+            (201, {"id": "d-1"}),
+            (200, {"id": "d-1", "isDraft": True}),
+        ]
+    )
+    provider = GraphProvider("office", "cid", str(tmp_path / "t.json"), auth=auth, transport=transport)
+    assert provider.save_draft(to=["sam@example.test"], subject="Re: Synthetic", body="Hi.") == "d-1"
+    methods = [call[0] for call in transport.calls]
+    assert methods == ["POST", "GET"]
+    assert transport.calls[0][1].endswith("/v1.0/me/messages")
+
+
+def test_save_draft_reply_uses_create_reply(tmp_path: Path) -> None:
+    auth = _draft_auth(tmp_path)
+    transport = FakeJson(
+        [
+            (200, {"id": "d-2"}),
+            (200, {}),
+            (200, {"id": "d-2", "isDraft": True}),
+        ]
+    )
+    provider = GraphProvider("office", "cid", str(tmp_path / "t.json"), auth=auth, transport=transport)
+    assert provider.save_draft(to=["s@example.test"], subject="s", body="b", in_reply_to="g-1") == "d-2"
+    assert transport.calls[0][1].endswith("/v1.0/me/messages/g-1/createReply")
+    assert transport.calls[1][0] == "PATCH"
+
+
+def test_save_draft_rejects_missing_receipt(tmp_path: Path) -> None:
+    auth = _draft_auth(tmp_path)
+    provider = GraphProvider(
+        "office", "cid", str(tmp_path / "t.json"), auth=auth, transport=FakeJson([(201, {})])
+    )
+    with pytest.raises(GraphError, match="draft id"):
+        provider.save_draft(to=["s@example.test"], subject="s", body="b")

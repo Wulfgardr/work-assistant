@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
+import re
 import shutil
 
 from work_assistant.config import default_data_dir, load_config
@@ -33,7 +34,12 @@ def _choose(prompt: str, options: list[tuple[str, str]], default: str) -> str:
     print(f"{prompt}")
     for index, (value, label) in enumerate(options, 1):
         print(f"  {index}. {label}")
-    default_index = str(next(i for i, (value, _label) in enumerate(options, 1) if value == default))
+    default_index = str(
+        next(
+            (i for i, (value, _label) in enumerate(options, 1) if value == default),
+            1,
+        )
+    )
 
     def validate(answer: str) -> str | None:
         if answer in [str(i) for i in range(1, len(options) + 1)]:
@@ -79,7 +85,7 @@ def _existing_dir(answer: str) -> str | None:
 
 def _account_name(taken: set[str]):
     def validate(answer: str) -> str | None:
-        if not answer or any(char in answer for char in " \t\"'[]"):
+        if not answer or not re.match(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$", answer):
             return "usa un nome semplice senza spazi (es. personale, lavoro)."
         if answer in taken:
             return f"l'account {answer!r} esiste già."

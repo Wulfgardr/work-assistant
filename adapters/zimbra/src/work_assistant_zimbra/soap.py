@@ -29,12 +29,31 @@ class ZimbraSoapError(ZimbraError):
         self.detail = message
 
 
+class ZimbraAuthError(ZimbraError):
+    pass
+
+
+AUTH_FAULTS = {"AUTH_EXPIRED", "AUTH_REQUIRED", "NO_SUCH_AUTH_TOKEN"}
+
+
 def load_session_cookies(session_file: str | Path) -> dict[str, str]:
     """Read the local session file written by `import-zimbra-har`.
 
     Only cookie names and values are read; the HAR itself is never required.
     """
-    raw = json.loads(Path(session_file).expanduser().read_text(encoding="utf-8"))
+    import os
+
+    path = Path(session_file).expanduser()
+    if path.is_symlink():
+        raise ZimbraError("session file must be a regular file")
+    if os.name != "nt" and path.is_file():
+        try:
+            stat = path.stat()
+            if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+                raise ZimbraError("session file must be owner-only (0600)")
+        except OSError as exc:
+            raise ZimbraError(f"session file is unreadable: {exc}") from exc
+    raw = json.loads(path.read_text(encoding="utf-8"))
     cookies = raw.get("cookies", {}) if isinstance(raw, dict) else {}
     selected = {
         name: str(value)
@@ -85,6 +104,19 @@ def get_msg_request(message_id: str) -> ET.Element:
     return element
 
 
+def save_draft_request(to: list[str], subject: str, body: str) -> ET.Element:
+    element = ET.Element("SaveDraftRequest", {"xmlns": MAIL_NS})
+    message = ET.SubElement(element, "m")
+    for address in to:
+        ET.SubElement(message, "e", {"t": "t", "a": address})
+    subject_element = ET.SubElement(message, "su")
+    subject_element.text = subject
+    part = ET.SubElement(message, "mp", {"ct": "text/plain"})
+    content = ET.SubElement(part, "content")
+    content.text = body
+    return element
+
+
 def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
@@ -102,6 +134,11 @@ def parse_response(payload: bytes, response_tag: str) -> ET.Element:
                 code = element.text.strip()
                 break
         reason = fault.findtext("faultstring") or "SOAP fault"
+        if code.split(".")[-1] in AUTH_FAULTS:
+            raise ZimbraAuthError(
+                "session expired or missing; re-run `work-assistant import-zimbra-har` "
+                f"to refresh it ({code})"
+            )
         raise ZimbraSoapError(code, reason.strip())
     for element in root.iter():
         if _local(element.tag) == response_tag:

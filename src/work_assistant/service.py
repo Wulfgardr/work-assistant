@@ -46,6 +46,7 @@ def _builtin_factories() -> dict[str, Callable[[AccountConfig], MailProvider]]:
             username=str(account.options.get("username") or account.address),
             port=int(account.options.get("port", 993)),
             folder=str(account.options.get("folder", "INBOX")),
+            drafts_folder=str(account.options.get("drafts_folder", "Drafts")),
         ),
     }
 
@@ -129,6 +130,26 @@ class WorkAssistant:
         changed = self.archive.upsert(messages)
         return {"account": account_name, "observed": len(messages), "changed": changed}
 
+    def save_provider_draft(
+        self,
+        account_name: str,
+        to: list[str],
+        subject: str,
+        body: str,
+        in_reply_to: str | None = None,
+    ) -> dict[str, object]:
+        """Store a draft on the provider. Person authority only: never exposed on MCP."""
+        account = self.config.accounts[account_name]
+        draft_id = provider_for(account).save_draft(
+            to=to, subject=subject, body=body, in_reply_to=in_reply_to
+        )
+        return {
+            "account": account_name,
+            "provider_draft_id": draft_id,
+            "status": "provider_draft",
+            "sent": False,
+        }
+
     def attachment_capabilities(self) -> dict[str, object]:
         limits, _ = self._attachment_pipeline()
         capabilities = describe_capabilities()
@@ -182,7 +203,9 @@ class WorkAssistant:
                 "source_sha256": digest,
             }
         limits, ocr_mode = self._attachment_pipeline()
-        [record] = [item for item in message["attachments"] if str(item.get("id")) == attachment_id]
+        record = next(
+            item for item in message["attachments"] if str(item.get("id")) == attachment_id
+        )
         result = extract_attachment_text(
             data,
             filename=str(record.get("filename") or ""),

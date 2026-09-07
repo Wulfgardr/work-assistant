@@ -52,6 +52,15 @@ class TokenStore:
     def load(self) -> dict:
         if not self.path.is_file():
             return {}
+        if self.path.is_symlink():
+            raise GraphAuthError("token cache must be a regular file")
+        if os.name != "nt":
+            try:
+                stat = self.path.stat()
+                if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+                    raise GraphAuthError("token cache must be owner-only (0600)")
+            except OSError as exc:
+                raise GraphAuthError(f"token cache is unreadable: {exc}") from exc
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:

@@ -26,11 +26,11 @@ Il broker rifiuta dati protetti collocati nel repository o in un altro workspace
 
 Il gateway MCP non deve ricevere `work-assistant.toml`. Fornisci solo endpoint e percorso del file di autenticazione mostrati da `broker-info`. La chiave autentica il protocollo filtrato; non abilita letture di file generiche.
 
-Su sistemi POSIX, il registro delle identità deve essere un file regolare, non un collegamento simbolico, appartenere all'utente e avere permessi `0600`. Su Windows il caricamento rifiuta ACL che concedono accesso a Everyone, Authenticated Users o al gruppo Users. La configurazione della macchina può applicare regole più restrittive.
+Su sistemi POSIX, il registro delle identità, la chiave di pseudonimizzazione, la chiave del broker, i token OAuth, i file di sessione e i segreti IMAP devono essere file regolari (mai symlink), appartenere all'utente e avere permessi `0600`. Su Windows il caricamento rifiuta ACL che concedono accesso a Everyone, Authenticated Users o al gruppo Users. La configurazione della macchina può applicare regole più restrittive. Le chiavi esistenti vengono riverificate a ogni caricamento: un `chmod` allentato fallisce in modo chiuso.
 
 La cassaforte cifrata contiene la mappa reversibile degli alias. La cifratura protegge integrità e riservatezza del file, ma non sostituisce l'isolamento del sistema operativo.
 
-La pseudonimizzazione non garantisce anonimato. Testo libero, fatti rari e stile di scrittura possono restare identificativi. Una regola `allow_raw` consente deliberatamente l'esposizione al modello per i mittenti corrispondenti.
+La pseudonimizzazione non garantisce anonimato. Testo libero, fatti rari e stile di scrittura possono restare identificativi. Una regola `allow_raw` consente deliberatamente l'esposizione al modello per i mittenti corrispondenti, inclusi eventuali dati di terzi citati nel messaggio: usala solo per mittenti fidati il cui contenuto non cita terzi sensibili.
 
 ## Revisione Daybreak
 
