@@ -24,7 +24,7 @@ Gli adapter in questa cartella sono sperimentali: i test usano transport finti c
 7. Refresh silente dopo scadenza dell'access token (nessun nuovo login).
 8. Throttling: sotto carico l'adapter attende `Retry-After` invece di fallire.
 9. `createReply` con `in_reply_to`: la bozza risultante cita il messaggio originale.
-10. Permessi minimi: l'app Entra ha solo `Mail.Read` delegato (+ `offline_access`).
+10. Permessi minimi: l'app Entra ha solo `Mail.ReadWrite` delegato (+ `offline_access`).
 
 ## IMAP integrato (`demo` no, `imap` sì)
 

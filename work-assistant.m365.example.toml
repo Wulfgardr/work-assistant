@@ -1,0 +1,16 @@
+# Copia in work-assistant.toml e sostituisci i valori dimostrativi.
+# Installa prima: python -m pip install . ./adapters/graph
+# Login: work-assistant-graph-login --config work-assistant.toml --account office
+schema_version = 1
+
+[privacy]
+mode = "all"
+default_action = "pseudonymize"
+
+[accounts.office]
+provider = "graph"
+address = "alex@example.test"
+client_id = "00000000-0000-0000-0000-000000000000"
+tenant = "organizations"
+# Usa un percorso privato fuori dal repository e dal workspace dell'agente.
+token_file = "~/.work-assistant/office.graph.token.json"

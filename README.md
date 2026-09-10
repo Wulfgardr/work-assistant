@@ -307,9 +307,20 @@ work-assistant --config work-assistant.toml import-zimbra-har \
 
 Il comando non elimina il file HAR. Dopo la verifica, sposta o elimina l'esportazione con una procedura adeguata al suo contenuto sensibile.
 
-### Exchange Online (Microsoft 365)
+### Outlook / Office 365 / Exchange Online (Microsoft 365)
 
-L'adapter sperimentale di sola lettura in [`adapters/graph`](adapters/graph) usa OAuth2 device code con il solo permesso delegato `Mail.Read`: niente password né segreti condivisi. Dopo `python -m pip install ./adapters/graph`:
+L'adapter sperimentale per lettura e bozze in [`adapters/graph`](adapters/graph) usa OAuth2 device code con il solo permesso delegato `Mail.ReadWrite`: niente password né segreti condivisi. Il permesso consente anche modifica ed eliminazione della posta, ma non l'invio; l'adapter espone lettura e bozze e non richiede `Mail.Send`.
+
+Per attivarlo dalla cartella del repository:
+
+```bash
+python -m pip install . ./adapters/graph
+work-assistant --config work-assistant.toml setup
+```
+
+Scegli **graph**, inserisci indirizzo, client ID Entra e tenant. La procedura prepara la configurazione; il login avviene nel passaggio successivo. In alternativa, copia [`work-assistant.m365.example.toml`](work-assistant.m365.example.toml) e sostituisci i valori dimostrativi. Registrazione Entra e consenso sono descritti nella [guida dell'adapter](adapters/graph/README.md).
+
+Configurazione della casella:
 
 ```toml
 [accounts.office]

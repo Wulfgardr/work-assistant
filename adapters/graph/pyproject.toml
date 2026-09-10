@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "work-assistant-graph"
-version = "0.1.0"
-description = "Experimental read-only Microsoft Graph adapter for Work Assistant."
+version = "0.1.1"
+description = "Experimental Microsoft Graph reading and drafts adapter for Work Assistant."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

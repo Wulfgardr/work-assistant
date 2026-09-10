@@ -259,3 +259,44 @@ def test_save_draft_rejects_missing_receipt(tmp_path: Path) -> None:
     )
     with pytest.raises(GraphError, match="draft id"):
         provider.save_draft(to=["s@example.test"], subject="s", body="b")
+
+
+@pytest.mark.parametrize("error", ["authorization_pending", "slow_down", "access_denied"])
+def test_oauth_http_400_reaches_device_flow(monkeypatch, error):
+    import io
+    import urllib.error
+    from work_assistant_graph.auth import FormTransport
+
+    def pending(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            400, "Bad Request", {},
+            io.BytesIO(json.dumps({"error": error, "error_description": "private detail"}).encode()),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", pending)
+    assert FormTransport().post_form("https://login.microsoftonline.com/token", {}) == {"error": error}
+
+
+def test_login_requests_draft_permission_without_send(tmp_path, monkeypatch):
+    monkeypatch.setattr("work_assistant_graph.auth.time.sleep", lambda _: None)
+    auth = _auth(tmp_path, [
+        {"user_code": "TEST", "verification_uri": "https://example.test", "device_code": "private"},
+        {"access_token": "synthetic", "refresh_token": "synthetic", "expires_in": 3600},
+    ])
+    auth.login()
+    scopes = auth.transport.calls[0][1]["scope"].split()
+    assert set(scopes) == {"Mail.ReadWrite", "offline_access"}
+
+
+def test_oauth_http_error_does_not_expose_response(monkeypatch):
+    import io
+    import urllib.error
+    from work_assistant_graph.auth import FormTransport
+
+    def fail(*args, **kwargs):
+        raise urllib.error.HTTPError("https://example.test", 500, "private detail", {}, io.BytesIO(b"private body"))
+
+    monkeypatch.setattr("urllib.request.urlopen", fail)
+    with pytest.raises(GraphAuthError, match="^identity endpoint returned HTTP 500$"):
+        FormTransport().post_form("https://login.microsoftonline.com/token", {})

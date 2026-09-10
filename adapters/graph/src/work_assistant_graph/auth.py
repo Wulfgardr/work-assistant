@@ -4,11 +4,12 @@ import json
 import os
 from pathlib import Path
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
 
-SCOPES = ("Mail.Read", "offline_access")
+SCOPES = ("Mail.ReadWrite", "offline_access")
 LOGIN_HOST = "https://login.microsoftonline.com"
 
 
@@ -39,8 +40,17 @@ class FormTransport:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode())
-        except OSError as exc:
-            raise GraphAuthError(f"identity endpoint is unreachable: {exc}") from exc
+        except urllib.error.HTTPError as exc:
+            # OAuth returns pending/slow_down as HTTP 400 during device polling.
+            try:
+                payload = json.loads(exc.read().decode())
+            except (ValueError, UnicodeError):
+                raise GraphAuthError(f"identity endpoint returned HTTP {exc.code}") from None
+            if exc.code == 400 and isinstance(payload, dict) and isinstance(payload.get("error"), str):
+                return {"error": payload["error"]}
+            raise GraphAuthError(f"identity endpoint returned HTTP {exc.code}") from None
+        except OSError:
+            raise GraphAuthError("identity endpoint is unreachable") from None
 
 
 class TokenStore:
@@ -83,7 +93,7 @@ class TokenStore:
 
 
 class DeviceFlow:
-    """OAuth2 device code flow for public clients (delegated Mail.Read only).
+    """OAuth2 device code flow for public clients (delegated Mail.ReadWrite only).
 
     No client secret is ever needed or stored. The `device_code` is used
     locally for polling and never printed; only the server-provided user
@@ -101,7 +111,7 @@ class DeviceFlow:
     ):
         client_id = client_id.strip()
         if not client_id:
-            raise GraphAuthError("client_id is required; register an app with Mail.Read delegated")
+            raise GraphAuthError("client_id is required; register an app with Mail.ReadWrite delegated")
         self.client_id = client_id
         self.tenant = _check_tenant(tenant)
         self.store = TokenStore(token_file)

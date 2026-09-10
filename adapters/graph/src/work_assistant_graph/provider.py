@@ -54,7 +54,7 @@ def _body_text(body: object) -> str:
 
 
 class GraphProvider:
-    """Read-only Microsoft Graph adapter (delegated Mail.Read only).
+    """Microsoft Graph adapter for reading and drafts (delegated Mail.ReadWrite).
 
     Experimental: verify against the target tenant before trusting any sync.
     Only `fileAttachment` parts expose bytes; nested or reference attachments

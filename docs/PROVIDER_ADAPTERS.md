@@ -73,7 +73,7 @@ zimbra = "work_assistant_zimbra.provider:zimbra_provider"
 carbonio = "work_assistant_zimbra.provider:zimbra_provider"
 ```
 
-Il pacchetto sperimentale `adapters/graph` segue lo stesso schema per Exchange Online (nomi `graph` e `m365`): autenticazione OAuth2 device code con solo `Mail.Read` delegato, token in un file locale, sola lettura.
+Il pacchetto sperimentale `adapters/graph` segue lo stesso schema per Exchange Online (nomi `graph` e `m365`): autenticazione OAuth2 device code con solo `Mail.ReadWrite` delegato, token in un file locale, lettura e creazione di bozze senza invio.
 
 Mantieni le opzioni specifiche sotto la tabella dell'account in `work-assistant.toml`. Il core non apre connessioni di rete implicite: ogni accesso esterno vive nell'adapter dichiarato.
 

@@ -1,6 +1,6 @@
 # work-assistant-graph
 
-Experimental Microsoft Graph adapter for Work Assistant (Exchange Online / M365 mail): read plus provider drafts, never sends. Delegated `Mail.Read` only, via OAuth2 device code flow: no passwords, no client secrets, no shared credentials.
+Experimental Microsoft Graph adapter for Work Assistant (Exchange Online / M365 mail): read plus provider drafts, never sends. Delegated `Mail.ReadWrite` only, via OAuth2 device code flow: no passwords, no client secrets, no shared credentials.
 
 ## Install
 
@@ -15,8 +15,14 @@ Registration happens through the `work_assistant.providers` entry point group (`
 Register an app once in Microsoft Entra with:
 
 - type: public client (mobile & desktop);
-- delegated permission: `Mail.Read` (plus `offline_access` for refresh tokens);
+- delegated permission: `Mail.ReadWrite` (plus `offline_access` for refresh tokens);
+- enable **Allow public client flows** under Authentication;
+- select supported account types matching the target account and tenant;
 - no client secret, no redirect URI beyond the defaults.
+
+`Mail.ReadWrite` is required for provider drafts and also permits mail updates and deletion. It does not grant sending; never add `Mail.Send`. Existing installations that used `Mail.Read` must update the app permission and run login again to obtain consent. Tenant policy may require administrator approval.
+
+See [Microsoft permissions](https://learn.microsoft.com/en-us/graph/api/user-post-messages?view=graph-rest-1.0) and [device flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code).
 
 ```toml
 [accounts.office]
