@@ -7,7 +7,7 @@ from pathlib import Path
 def owner_write(path: Path, data: bytes, *, append: bool = False) -> None:
     """Write bytes so only the owner can read them (0600)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if append else os.O_TRUNC)
+    flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_BINARY", 0) | (os.O_APPEND if append else os.O_TRUNC)
     # O_EXCL is intentionally not used here: callers like backup/restore and
     # knowledge export overwrite their own files. Secrecy comes from 0600.
     descriptor = os.open(path, flags, 0o600)
