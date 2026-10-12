@@ -177,7 +177,7 @@ class ZimbraProvider:
             )
             hits = _children(response, "m")
             more = response.get("more")
-            if more not in {"0", "1"} or len(hits) > PAGE_LIMIT or (not hits and more == "1"):
+            if more not in {"0", "1", "false", "true"} or len(hits) > PAGE_LIMIT or (not hits and more in {"1", "true"}):
                 raise ZimbraError("search page is incomplete or ambiguous")
             for hit in hits:
                 identifier = str(hit.get("id") or "")
@@ -195,7 +195,7 @@ class ZimbraProvider:
                 if not _walk_parts(hit):
                     full = self._full_message(str(hit.get("id") or ""))
                 messages.append(_to_message(self.account, hit, full=full))
-            if more == "0":
+            if more in {"0", "false"}:
                 return messages
         raise ZimbraError("search page limit reached; no partial mailbox returned")
 

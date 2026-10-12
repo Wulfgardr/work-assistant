@@ -101,8 +101,14 @@ def _provider(tmp_path: Path, **options: object) -> ZimbraProvider:
     return provider
 
 
-def test_search_lists_messages_with_bodies_and_attachments(tmp_path: Path) -> None:
+@pytest.mark.parametrize("more", ["0", "false"])
+def test_search_lists_messages_with_bodies_and_attachments(tmp_path: Path, more: str) -> None:
     provider = _provider(tmp_path)
+    original = provider.client.transport.post
+    def post(*args):
+        status, payload = original(*args)
+        return status, payload.replace(b'more="0"', f'more="{more}"'.encode())
+    provider.client.transport.post = post
     messages = provider.list_messages()
     assert [message.id for message in messages] == ["101", "102"]
     first = messages[0]
