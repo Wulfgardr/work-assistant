@@ -291,7 +291,7 @@ def run_broker(
     auth_key = _load_or_create_auth_key(auth_path)
     socket_path = Path(endpoint) if os.name != "nt" else None
     if socket_path is not None:
-        socket_path.parent.mkdir(parents=True, exist_ok=True)
+        socket_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if os.name != "nt":
             # Fail closed on pre-created hijack dirs in /tmp: must be owned + 0700.
             try:

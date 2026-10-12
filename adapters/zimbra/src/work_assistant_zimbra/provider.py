@@ -14,6 +14,7 @@ from work_assistant_zimbra.soap import (
     ZimbraTransportError,
     _local,
     get_msg_request,
+    get_draft_folder_request,
     load_session_cookies,
     save_draft_request,
     search_request,
@@ -38,7 +39,7 @@ def _child_text(element: ET.Element, tag: str) -> str:
 def _epoch_ms_to_iso(value: str) -> str:
     try:
         moment = datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError, OSError):
         return ""
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -147,37 +148,56 @@ class ZimbraProvider:
         self.client = SoapClient(
             host, load_session_cookies(session_file), transport, timeout=timeout
         )
-        self.search_pages = max(1, search_pages)
+        self.search_pages = max(1, min(MAX_PAGES, search_pages))
 
     def _full_message(self, identifier: str) -> ET.Element | None:
-        try:
-            response = self.client.call(get_msg_request(identifier), "GetMsgResponse")
-        except ZimbraError:
-            return None
+        response = self.client.call(get_msg_request(identifier), "GetMsgResponse")
         children = _children(response, "m")
-        return children[0] if children else None
+        if len(children) != 1 or children[0].get("id") != identifier:
+            raise ZimbraError("message readback identity is missing or ambiguous")
+        return children[0]
 
     def list_messages(self, *, since: str | None = None) -> list[Message]:
+        cutoff = None
+        if since:
+            try:
+                cutoff = datetime.fromisoformat(since.replace("Z", "+00:00"))
+                if cutoff.tzinfo is None:
+                    if len(since) != 10:
+                        raise ValueError
+                    cutoff = cutoff.replace(tzinfo=timezone.utc)
+            except ValueError as exc:
+                raise ZimbraError("since requires an ISO date or a timestamp with timezone") from exc
         messages: list[Message] = []
+        seen: set[str] = set()
         for page in range(self.search_pages):
             response = self.client.call(
                 search_request(QUERY, limit=PAGE_LIMIT, offset=page * PAGE_LIMIT),
                 "SearchResponse",
             )
             hits = _children(response, "m")
-            if not hits:
-                break
+            more = response.get("more")
+            if more not in {"0", "1", "false", "true"} or len(hits) > PAGE_LIMIT or (not hits and more in {"1", "true"}):
+                raise ZimbraError("search page is incomplete or ambiguous")
             for hit in hits:
+                identifier = str(hit.get("id") or "")
+                if not identifier or identifier in seen:
+                    raise ZimbraError("search message identity is missing or duplicated")
+                seen.add(identifier)
                 sent_at = _epoch_ms_to_iso(str(hit.get("d") or ""))
-                if since and sent_at and sent_at <= since:
-                    return messages
+                if cutoff:
+                    if not sent_at:
+                        raise ZimbraError("search message date is unavailable")
+                    stamp = datetime.fromisoformat(sent_at.replace("Z", "+00:00"))
+                    if stamp < cutoff or (len(since) != 10 and stamp == cutoff):
+                        return messages  # Search is explicitly ordered by dateDesc.
                 full = None
                 if not _walk_parts(hit):
                     full = self._full_message(str(hit.get("id") or ""))
                 messages.append(_to_message(self.account, hit, full=full))
-            if response.get("more") == "0":
-                break
-        return messages
+            if more in {"0", "false"}:
+                return messages
+        raise ZimbraError("search page limit reached; no partial mailbox returned")
 
     def save_draft(
         self,
@@ -192,11 +212,36 @@ class ZimbraProvider:
             raise ZimbraError("zimbra reply drafts are not supported; create a standalone draft")
         if not to or not subject.strip():
             raise ZimbraError("provider draft requires recipients and a subject")
-        response = self.client.call(save_draft_request(to, subject, body), "SaveDraftResponse")
+        folders = _children(self.client.call(get_draft_folder_request(), "GetFolderResponse"), "folder")
+        if len(folders) != 1 or folders[0].get("name") != "Drafts" or not folders[0].get("id"):
+            raise ZimbraError("draft folder could not be verified")
+        folder_id = folders[0].get("id")
+        try:
+            response = self.client.call(save_draft_request(to, subject, body), "SaveDraftResponse")
+        except ZimbraError as exc:
+            raise ZimbraError("draft save outcome unverified; do not repeat the write") from exc
         stored = _children(response, "m")
-        draft_id = str(stored[0].get("id") or "") if stored else ""
+        draft_id = str(stored[0].get("id") or "") if len(stored) == 1 else ""
         if not draft_id:
-            raise ZimbraError("zimbra did not return a draft id")
+            raise ZimbraError("draft save outcome unverified; do not repeat the write")
+        try:
+            items = _children(self.client.call(get_msg_request(draft_id), "GetMsgResponse"), "m")
+            item = items[0] if len(items) == 1 else ET.Element("missing")
+            recipients = sorted(e.get("a") or "" for e in _children(item, "e") if e.get("t") == "t")
+            parts = [p for p in _walk_parts(item) if p.get("ct") == "text/plain"]
+            contents = _children(parts[0], "content") if len(parts) == 1 else []
+            subjects = _children(item, "su")
+            actual_subject = item.get("su") if item.get("su") is not None else (subjects[0].text if len(subjects) == 1 else None)
+            verified = (item.get("id") == draft_id and item.get("l") == folder_id
+                        and "d" in item.get("f", "") and recipients == sorted(to)
+                        and not any(e.get("t") in {"c", "b"} for e in _children(item, "e"))
+                        and not _attachments(item) and not any(item.get(k) for k in ("origid", "rt", "irt"))
+                        and actual_subject == subject and len(contents) == 1
+                        and (contents[0].text or "") == body)
+            if not verified:
+                raise ZimbraError("draft readback mismatch")
+        except ZimbraError as exc:
+            raise ZimbraError("draft save outcome unverified; do not repeat the write") from exc
         return draft_id
 
     def fetch_attachment_bytes(self, message_id: str, attachment_id: str) -> bytes:

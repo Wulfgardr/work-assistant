@@ -16,7 +16,8 @@ Gli adapter in questa cartella sono sperimentali: i test usano transport finti c
 7. `sync` con più di 100 messaggi: la paginazione non perde né duplica.
 8. `list_messages(since=...)`: nessun messaggio più vecchio del filtro.
 9. Allegato sopra qualche MB: `fetch_attachment_bytes` completa senza errori.
-10. Bozza standalone creata e ritrovata nella webmail; bozza di risposta rifiutata con messaggio chiaro.
+10. Bozza standalone riletta sullo stesso ID, ancora in Drafts, con destinatari e contenuto corretti; bozza di risposta rifiutata. Un esito incerto non autorizza una seconda scrittura.
+11. Date `after:`/`before:` indipendenti dalla lingua della casella; scadenza durante GetMsg ferma la sincronizzazione. Paginazione troncata o duplicata non produce un archivio parziale.
 
 ## Microsoft Graph (`adapters/graph`)
 
