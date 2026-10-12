@@ -31,10 +31,15 @@ work-assistant --config work-assistant.toml import-zimbra-har \
 ## Security boundaries
 
 - HTTPS only: plain HTTP hosts are refused, TLS verification stays on.
-- No side effects on read: search never marks messages as read. `save_draft` creates standalone drafts only and never sends; reply drafts are refused.
+- HTTPS responses are limited to 25 MiB before parsing; injected SOAP transports are checked too.
+- Search dates use an explicit `en_US` locale; `after:` excludes the named day. `since` accepts an inclusive UTC date or an exclusive timestamp with a timezone. Partial or duplicated search pages fail without returning a partial mailbox.
+- Search and message reads preserve read flags. Session expiry during a body read stops synchronization.
+- `save_draft` verifies the Drafts folder before writing, then reads the same ID and checks its folder, draft flag, recipients, subject and plain body. Reply drafts remain unsupported. An uncertain save/readback must be inspected in webmail; do not repeat the write automatically.
 - Session material stays in the local file (`0600`, outside any agent workspace).
 - Attachment bytes are returned to the core only; derived pseudonymized text is what crosses the broker.
 - A dedicated security review is still required before production use (see `docs/security/DAYBREAK-REVIEW.md` in the core repository).
+
+These source-level reliability fixes were adapted from the local Work Assistant implementation. No private source history, operational configuration, mailbox data or experimental Events activation is included. Synthetic tests do not establish compatibility with a live server.
 
 ## Real-server validation
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
+import re
 import ssl
 import urllib.error
 import urllib.request
@@ -12,6 +14,11 @@ SOAP_NS = "http://www.w3.org/schemas/soap/envelope/"
 ZIMBRA_NS = "urn:zimbra"
 MAIL_NS = "urn:zimbraMail"
 USER_AGENT = "work-assistant-zimbra/0.1.0"
+MAX_RESPONSE_BYTES = 25 * 1024 * 1024
+_QUERY_DATE = re.compile(
+    r'"(?:\\.|[^"\\])*"|(?<![\w:])(?P<operator>after|before):'
+    r'(?P<value>"(?:\\.|[^"\\])*"|[^\s()]+)', re.IGNORECASE,
+)
 
 
 class ZimbraError(RuntimeError):
@@ -81,6 +88,31 @@ def build_envelope(request: ET.Element) -> bytes:
     return ET.tostring(envelope, encoding="utf-8", xml_declaration=True)
 
 
+def normalize_query_dates(query: str) -> str:
+    """Keep quoted prose and relative dates; validate absolute date filters."""
+    def replace(match: re.Match[str]) -> str:
+        value = match.group("value")
+        if value is None:
+            return match.group(0)
+        quoted = value.startswith('"')
+        raw = value[1:-1] if quoted else value
+        if not raw[:1].isdigit():
+            return match.group(0)
+        try:
+            if re.fullmatch(r"\d{4}([/-])\d{1,2}\1\d{1,2}", raw):
+                year, month, day = map(int, re.split(r"[/-]", raw))
+            elif re.fullmatch(r"\d{1,2}/\d{1,2}/\d{4}", raw):
+                month, day, year = map(int, raw.split("/"))
+            else:
+                raise ValueError
+            date(year, month, day)
+        except ValueError as exc:
+            raise ZimbraError("invalid absolute search date") from exc
+        normalized = f"{month:02d}/{day:02d}/{year:04d}"
+        return f"{match.group('operator')}:" + (f'"{normalized}"' if quoted else normalized)
+    return _QUERY_DATE.sub(replace, query)
+
+
 def search_request(query: str, *, limit: int, offset: int) -> ET.Element:
     element = ET.Element(
         "SearchRequest",
@@ -93,14 +125,21 @@ def search_request(query: str, *, limit: int, offset: int) -> ET.Element:
             "fetch": "hits",
         },
     )
+    ET.SubElement(element, "locale").text = "en_US"
     query_element = ET.SubElement(element, "query")
-    query_element.text = query
+    query_element.text = normalize_query_dates(query)
     return element
 
 
 def get_msg_request(message_id: str) -> ET.Element:
     element = ET.Element("GetMsgRequest", {"xmlns": MAIL_NS})
-    ET.SubElement(element, "m", {"id": message_id})
+    ET.SubElement(element, "m", {"id": message_id, "read": "0"})
+    return element
+
+
+def get_draft_folder_request() -> ET.Element:
+    element = ET.Element("GetFolderRequest", {"xmlns": MAIL_NS})
+    ET.SubElement(element, "folder", {"path": "/Drafts"})
     return element
 
 
@@ -149,10 +188,14 @@ def parse_response(payload: bytes, response_tag: str) -> ET.Element:
 class UrllibTransport:
     """Default HTTPS transport. Plain HTTP hosts are refused."""
 
-    def __init__(self, *, cafile: str | None = None, timeout: float = 30):
+    def __init__(self, *, cafile: str | None = None, timeout: float = 30,
+                 max_response_bytes: int = MAX_RESPONSE_BYTES):
+        if type(max_response_bytes) is not int or max_response_bytes < 1:
+            raise ValueError("max_response_bytes must be a positive integer")
         context = ssl.create_default_context(cafile=cafile)
         self._context = context
         self._timeout = timeout
+        self._max_response_bytes = max_response_bytes
 
     def _open(self, url: str, data: bytes | None, headers: dict[str, str]) -> tuple[int, bytes]:
         if not url.startswith("https://"):
@@ -160,7 +203,10 @@ class UrllibTransport:
         request = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
         try:
             with urllib.request.urlopen(request, timeout=self._timeout, context=self._context) as response:
-                return int(response.status), response.read()
+                payload = response.read(self._max_response_bytes + 1)
+                if len(payload) > self._max_response_bytes:
+                    raise ZimbraTransportError("provider response exceeds byte limit")
+                return int(response.status), payload
         except urllib.error.HTTPError as exc:
             raise ZimbraTransportError(f"HTTP {exc.code} from provider") from exc
         except OSError as exc:
@@ -202,6 +248,8 @@ class SoapClient:
         )
         if status != 200:
             raise ZimbraTransportError(f"HTTP {status} from provider")
+        if len(payload) > MAX_RESPONSE_BYTES:
+            raise ZimbraTransportError("SOAP response exceeds byte limit")
         return parse_response(payload, response_tag)
 
     def download(self, path: str) -> bytes:

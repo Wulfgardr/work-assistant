@@ -74,7 +74,7 @@ def _case(
     address = (
         rf"\\.\pipe\work-assistant-benchmark-{os.getpid()}-{label}"
         if os.name == "nt"
-        else str(Path(tempfile.gettempdir()) / f"wa-{os.getpid()}-{hashlib.sha256(str(case).encode()).hexdigest()[:12]}.sock")
+        else str(root / f"{hashlib.sha256(label.encode()).hexdigest()[:8]}.sock")
     )
     auth = case / "broker.auth"
     process = get_context("spawn").Process(
@@ -123,7 +123,7 @@ def _case(
 def benchmark_privacy(iterations: int = 200, body_kib: int = 16, budget_ms: float = 25) -> dict[str, Any]:
     iterations = max(10, iterations)
     body_kib = max(1, body_kib)
-    with tempfile.TemporaryDirectory(prefix="work-assistant-benchmark-") as directory:
+    with tempfile.TemporaryDirectory(prefix="wa-") as directory:
         root = Path(directory)
         cases = [
             _case(root, "off", "off", iterations, body_kib),

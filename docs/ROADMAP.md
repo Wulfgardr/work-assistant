@@ -5,7 +5,8 @@ Stato di partenza: `0.7.0` su `main` (backup cifrato, bozze sul provider, harden
 ## 0.7.1 — Consolidamento (prossimo)
 
 - [ ] Opzione `selective_also_mask_generic_pii` per mascherare email/telefoni anche con `allow_raw`.
-- [ ] `defusedxml` + limite dimensione risposte SOAP Zimbra.
+- [x] Limite dimensione risposte SOAP Zimbra e rilettura delle bozze sullo stesso ID.
+- [ ] `defusedxml` per il parser SOAP Zimbra.
 - [ ] Limiti dimensione HAR (già 32 MB in import) + streaming entities/vault.
 - [ ] Verifica permessi Windows estesa a tutti i segreti (oggi solo registro entità).
 - [ ] `doctor` warning quando `source`/`path`/`data_dir` puntano a percorsi sensibili (`~/.ssh`, `/etc`).
